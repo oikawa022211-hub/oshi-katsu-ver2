@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>推し活記録 - ホーム</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<header class="app-header">
+  <span class="header-title">&#x1F49C; 推し活記録</span>
+  <div class="header-right">
+    <button class="icon-btn" onclick="window.location.href='cost.html'" title="費用管理">&#x1F4B0;</button>
+    <button class="icon-btn" onclick="doLogout()" title="ログアウト">&#x1F6AA;</button>
+  </div>
+</header>
+<main class="app-content">
+  <p id="greeting" style="font-size:14px;color:var(--text-sub);margin-bottom:1rem;"></p>
+  <div class="stat-row">
+    <div class="stat-box"><div class="stat-label">総参戦回数</div><div class="stat-value primary" id="total-count">-</div></div>
+    <div class="stat-box"><div class="stat-label">今年の総費用</div><div class="stat-value primary" id="total-cost">-</div></div>
+  </div>
+  <div class="section-title">参戦記録</div>
+  <div id="records-list"><div class="loading"><div class="spinner"></div>読み込み中…</div></div>
+</main>
+<a href="record.html" class="fab" title="新しい記録を追加">＋</a>
+<nav class="bottom-nav">
+  <a href="home.html" class="nav-item active"><span class="nav-icon">&#x1F3E0;</span><span>ホーム</span></a>
+  <a href="record.html" class="nav-item"><span class="nav-icon">&#x2795;</span><span>記録追加</span></a>
+  <a href="cost.html" class="nav-item"><span class="nav-icon">&#x1F4B0;</span><span>費用管理</span></a>
+</nav>
+<script type="module">
+import { auth } from './js/firebase.js';
+import { db } from './js/firebase.js';
+import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { collection, query, where, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user) { window.location.href = 'index.html'; return; }
+  document.getElementById('greeting').textContent = "こんにちは、" + (user.displayName || "ファン") + "さん！";
+  await loadRecords(user.uid);
+});
+
+async function loadRecords(uid) {
+  const list = document.getElementById('records-list');
+  try {
+    const q = query(collection(db, 'records'), where('uid', '==', uid), orderBy('date', 'desc'));
+    const snap = await getDocs(q);
+    if (snap.empty) {
+      list.innerHTML = '<div class="empty-state"><div class="empty-icon">&#x1F3A4;</div><h3>まだ記録がありません</h3><p>右下の＋ボタンから最初の参戦記録を追加しよう！</p></div>';
+      document.getElementById('total-count').textContent = '0回';
+      document.getElementById('total-cost').textContent = '¥0';
+      return;
+    }
+    let totalCost = 0;
+    const thisYear = new Date().getFullYear();
+    let html = '';
+    snap.forEach(doc => {
+      const d = doc.data();
+      const cost = (d.costs || []).reduce((s,c) => s + (c.amount || 0), 0);
+      const dateStr = d.date ? new Date(d.date).toLocaleDateString('ja-JP', {year:'numeric',month:'short',day:'numeric'}) : '';
+      if (d.date && new Date(d.date).getFullYear() === thisYear) totalCost += cost;
+      const icons = {tokyo:'&#x1F5FC;',osaka:'&#x1F3EF;',nagoya:'&#x26E9;',fukuoka:'&#x1F30A;'};
+      const icon = icons[d.venue] || '&#x1F3B5;';
+      html += '<a class="record-card" href="detail.html?id=' + doc.id + '">' +
+        '<div class="record-icon">' + icon + '</div>' +
+        '<div class="record-info"><div class="record-venue">' + (d.venueName||'会場未設定') + '</div>' +
+        '<div class="record-meta">' + dateStr + (d.artistName ? ' · ' + d.artistName : '') + '</div></div>' +
+        (cost > 0 ? '<div class="record-cost">¥' + cost.toLocaleString() + '</div>' : '') + '</a>';
+    });
+    list.innerHTML = html;
+    document.getElementById('total-count').textContent = snap.size + '回';
+    document.getElementById('total-cost').textContent = '¥' + totalCost.toLocaleString();
+  } catch(e) {
+    list.innerHTML = '<p style="color:var(--text-hint);text-align:center;padding:2rem;">読み込みに失敗しました</p>';
+    console.error(e);
+  }
+}
+window.doLogout = async () => { if (confirm('ログアウトしますか？')) { await signOut(auth); window.location.href = 'index.html'; } };
+</script>
+</body>
+</html>
