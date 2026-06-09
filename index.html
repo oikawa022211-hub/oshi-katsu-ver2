@@ -91,24 +91,30 @@ function showMsg(text, type) {
 function setLoading(btnId, loading) {
   const btn = document.getElementById(btnId);
   btn.disabled = loading;
-  btn.textContent = loading ? '処理中…' : (btnId === 'btn-login' ? 'ログイン' : 'アカウントを作成');
+  btn.textContent = loading
+    ? '処理中…'
+    : btnId === 'btn-login' ? 'ログイン' : 'アカウントを作成';
 }
 
 window.switchTab = function(tab) {
-  document.getElementById('tab-login').className = 'tab-btn' + (tab === 'login' ? ' active' : '');
+  document.getElementById('tab-login').className  = 'tab-btn' + (tab === 'login' ? ' active' : '');
   document.getElementById('tab-register').className = 'tab-btn' + (tab === 'register' ? ' active' : '');
-  document.getElementById('form-login').style.display = tab === 'login' ? '' : 'none';
+  document.getElementById('form-login').style.display    = tab === 'login' ? '' : 'none';
   document.getElementById('form-register').style.display = tab === 'register' ? '' : 'none';
   document.getElementById('msg').className = 'msg';
 };
 
 window.login = async function() {
-  const email = document.getElementById('login-email').value.trim();
+  const email    = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-password').value;
-  if (!email || !password) return showMsg('メールアドレスとパスワードを入力してください', 'error');
+  if (!email)    return showMsg('メールアドレスを入力してください', 'error');
+  if (!password) return showMsg('パスワードを入力してください', 'error');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    return showMsg('メールアドレスの形式が正しくありません', 'error');
   setLoading('btn-login', true);
   try {
     await signInWithEmailAndPassword(auth, email, password);
+    // onAuthStateChanged が home.html へリダイレクト
   } catch (e) {
     setLoading('btn-login', false);
     showMsg(getErrorMessage(e.code), 'error');
@@ -116,15 +122,22 @@ window.login = async function() {
 };
 
 window.register = async function() {
-  const name = document.getElementById('reg-name').value.trim();
-  const email = document.getElementById('reg-email').value.trim();
+  const name     = document.getElementById('reg-name').value.trim();
+  const email    = document.getElementById('reg-email').value.trim();
   const password = document.getElementById('reg-password').value;
-  if (!name || !email || !password) return showMsg('すべての項目を入力してください', 'error');
+  if (!name)     return showMsg('ニックネームを入力してください', 'error');
+  if (!email)    return showMsg('メールアドレスを入力してください', 'error');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    return showMsg('メールアドレスの形式が正しくありません', 'error');
+  if (!password) return showMsg('パスワードを入力してください', 'error');
   if (password.length < 8) return showMsg('パスワードは8文字以上で入力してください', 'error');
+  if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password))
+    return showMsg('パスワードは英字と数字を両方含めてください', 'error');
   setLoading('btn-register', true);
   try {
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(cred.user, { displayName: name });
+    // onAuthStateChanged が home.html へリダイレクト
   } catch (e) {
     setLoading('btn-register', false);
     showMsg(getErrorMessage(e.code), 'error');
@@ -135,7 +148,7 @@ window.loginWithGoogle = async function() {
   try {
     await signInWithPopup(auth, provider);
   } catch (e) {
-    showMsg(getErrorMessage(e.code), 'error');
+    if (e.code !== 'auth/popup-closed-by-user') showMsg(getErrorMessage(e.code), 'error');
   }
 };
 
@@ -152,17 +165,25 @@ window.forgotPassword = async function() {
 
 function getErrorMessage(code) {
   const messages = {
-    'auth/user-not-found': 'このメールアドレスは登録されていません',
-    'auth/wrong-password': 'パスワードが正しくありません',
-    'auth/email-already-in-use': 'このメールアドレスはすでに使用されています',
-    'auth/weak-password': 'パスワードは8文字以上で設定してください',
-    'auth/invalid-email': 'メールアドレスの形式が正しくありません',
-    'auth/too-many-requests': 'しばらく時間をおいて再度お試しください',
-    'auth/popup-closed-by-user': 'ログインがキャンセルされました',
+    // ログイン
+    'auth/user-not-found':         'このメールアドレスは登録されていません',
+    'auth/wrong-password':         'パスワードが正しくありません',
+    'auth/invalid-credential':     'メールアドレスまたはパスワードが正しくありません',
+    'auth/invalid-email':          'メールアドレスの形式が正しくありません',
+    'auth/user-disabled':          'このアカウントは無効になっています。サポートにお問い合わせください',
+    // 新規登録
+    'auth/email-already-in-use':   'このメールアドレスはすでに使用されています',
+    'auth/weak-password':          'パスワードは8文字以上で設定してください',
+    'auth/operation-not-allowed':  'この認証方法は現在使用できません',
+    // 共通
+    'auth/too-many-requests':      'ログイン試行回数が多すぎます。しばらく時間をおいて再度お試しください',
+    'auth/network-request-failed': 'ネットワークエラーが発生しました。接続を確認してください',
+    'auth/popup-blocked':          'ポップアップがブロックされました。ブラウザの設定を確認してください',
+    'auth/cancelled-popup-request':'ログインがキャンセルされました',
+    'auth/internal-error':         'サーバーエラーが発生しました。しばらく時間をおいて再度お試しください',
   };
-  return messages[code] || 'エラーが発生しました。もう一度お試しください';
+  return messages[code] || 'エラーが発生しました（' + code + '）。もう一度お試しください';
 }
 </script>
-
 </body>
 </html>

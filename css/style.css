@@ -490,3 +490,133 @@ textarea { resize: vertical; min-height: 80px; }
 .stat-label { font-size: 12px; color: var(--text-hint); margin-bottom: 4px; }
 .stat-value { font-size: 1.3rem; font-weight: 700; color: var(--text); }
 .stat-value.primary { color: var(--primary); }
+
+/* ---- Home grid ---- */
+.home-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 1.5rem;
+}
+
+.home-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  padding: 1.25rem 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  text-decoration: none;
+  color: inherit;
+  transition: box-shadow 0.2s, transform 0.15s;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.04);
+}
+
+.home-card:hover { box-shadow: var(--shadow); transform: translateY(-2px); }
+.home-card:active { transform: scale(0.97); }
+
+.home-card-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+}
+
+.home-card-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.home-card-sub {
+  font-size: 11px;
+  color: var(--text-hint);
+  line-height: 1.4;
+}
+
+/* ---- Expenses page ---- */
+.expense-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.expense-item:last-child { border-bottom: none; }
+.expense-dot {
+  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+}
+.expense-info { flex: 1; min-width: 0; }
+.expense-name { font-size: 14px; font-weight: 500; }
+.expense-meta { font-size: 12px; color: var(--text-hint); }
+.expense-amount { font-weight: 700; font-size: 15px; color: var(--text); white-space: nowrap; }
+
+/* ---- Calendar ---- */
+.cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+.cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 2px; }
+.cal-day-label { text-align: center; font-size: 11px; color: var(--text-hint); padding: 4px 0; font-weight: 500; }
+.cal-cell {
+  aspect-ratio: 1;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.15s;
+}
+.cal-cell:hover { background: var(--primary-light); }
+.cal-cell.today { background: var(--primary); color: white; font-weight: 700; }
+.cal-cell.has-event::after {
+  content: '';
+  width: 5px; height: 5px;
+  background: var(--accent);
+  border-radius: 50%;
+  position: absolute;
+  bottom: 3px;
+}
+.cal-cell.other-month { color: var(--text-hint); }
+
+/* ---- Timeline ---- */
+.timeline { position: relative; padding-left: 24px; }
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 8px; top: 0; bottom: 0;
+  width: 2px;
+  background: linear-gradient(to bottom, var(--primary), var(--accent));
+  border-radius: 2px;
+}
+.tl-item {
+  position: relative;
+  margin-bottom: 1.5rem;
+}
+.tl-dot {
+  position: absolute;
+  left: -20px;
+  top: 14px;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--primary);
+  border: 2px solid white;
+  box-shadow: 0 0 0 2px var(--primary);
+}
+.tl-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  padding: 1rem 1.25rem;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.04);
+}
+.tl-date { font-size: 11px; color: var(--text-hint); margin-bottom: 6px; }
+.tl-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+.tl-venue { font-size: 13px; color: var(--text-sub); margin-bottom: 8px; }
+.tl-tags { display: flex; gap: 6px; flex-wrap: wrap; }

@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>推し活記録 - 推し活費用</title>
+  <link rel="stylesheet" href="css/style.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<header class="app-header">
+  <button class="icon-btn" onclick="location.href='home.html'">←</button>
+  <span class="header-title">推し活費用一覧</span>
+  <button class="icon-btn" onclick="showAddModal()" style="background:var(--primary);color:white;font-size:1.2rem;">＋</button>
+</header>
+<main class="app-content">
+  <!-- 期間切替 -->
+  <div style="display:flex;gap:8px;margin-bottom:12px;">
+    <select id="period-type" onchange="loadExpenses()" style="flex:1;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:14px;background:var(--surface);color:var(--text);">
+      <option value="calendar">暦年（1月〜12月）</option>
+      <option value="fiscal">年度（4月〜翌3月）</option>
+    </select>
+    <select id="year-sel" onchange="loadExpenses()" style="flex:0.6;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:14px;background:var(--surface);color:var(--text);"></select>
+  </div>
+
+  <!-- 合計ヒーロー -->
+  <div style="background:var(--primary);border-radius:var(--radius);padding:18px;text-align:center;color:white;margin-bottom:14px;">
+    <div style="font-size:12px;opacity:.8;margin-bottom:4px;">合計金額</div>
+    <div id="grand-total" style="font-size:32px;font-weight:700;">¥0</div>
+    <div id="exp-count" style="font-size:11px;opacity:.7;margin-top:3px;">0件</div>
+  </div>
+
+  <!-- グラフ -->
+  <div class="card" style="margin-bottom:12px;">
+    <div style="font-size:12px;font-weight:700;color:var(--text-sub);margin-bottom:10px;">カテゴリ別内訳</div>
+    <div style="height:180px;position:relative;"><canvas id="pie-chart"></canvas></div>
+    <div id="pie-legend" style="margin-top:12px;"></div>
+  </div>
+  <div class="card" style="margin-bottom:12px;">
+    <div style="font-size:12px;font-weight:700;color:var(--text-sub);margin-bottom:8px;">月別推移</div>
+    <div style="height:120px;position:relative;"><canvas id="bar-chart"></canvas></div>
+  </div>
+
+  <!-- 明細 -->
+  <div class="section-title">すべての明細</div>
+  <div class="card" id="exp-list">
+    <div class="loading"><div class="spinner"></div>読み込み中…</div>
+  </div>
+</main>
+
+<!-- 追加モーダル -->
+<div id="modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;align-items:flex-end;" onclick="hideModal(event)">
+  <div style="background:var(--surface);border-radius:var(--radius) var(--radius) 0 0;padding:20px;width:100%;max-width:480px;margin:0 auto;" onclick="event.stopPropagation()">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <span style="font-size:15px;font-weight:700;" id="modal-title">費用を追加</span>
+      <button onclick="hideModal()" style="border:none;background:none;font-size:20px;cursor:pointer;color:var(--text-hint);">✕</button>
+    </div>
+    <div id="modal-msg" class="msg"></div>
+    <div class="field">
+      <label>カテゴリ</label>
+      <select id="m-cat">
+        <option value="ticket">🎟 チケット代</option>
+        <option value="goods">🛍 グッズ代</option>
+        <option value="travel">✈ 遠征費</option>
+        <option value="other">💫 その他</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>会場名（任意）</label>
+      <select id="m-venue">
+        <option value="">会場を選択（任意）</option>
+        <option value="東京ドーム">東京ドーム</option>
+        <option value="京セラドーム大阪">京セラドーム大阪</option>
+        <option value="バンテリンドームナゴヤ">バンテリンドームナゴヤ</option>
+        <option value="みずほPayPayドーム福岡">みずほPayPayドーム福岡</option>
+        <option value="明治神宮野球場">明治神宮野球場</option>
+        <option value="other">その他</option>
+      </select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="field"><label>金額（円）</label><input type="number" id="m-amount" placeholder="例：5000" min="0"/></div>
+      <div class="field"><label>日付</label><input type="date" id="m-date"/></div>
+    </div>
+    <div class="field"><label>メモ（任意）</label><input type="text" id="m-memo" placeholder="例：〇〇ツアー グッズ"/></div>
+    <button class="btn-primary" id="m-save-btn" onclick="saveExpense()">保存する</button>
+    <input type="hidden" id="edit-id"/>
+    <button class="btn-primary" id="m-del-btn" onclick="deleteExpense()" style="display:none;margin-top:8px;background:#E24B4A;">削除する</button>
+  </div>
+</div>
+
+<script type="module">
+import { requireAuth } from './js/auth-guard.js';
+import { db } from './js/firebase.js';
+import {
+  collection, query, where, getDocs, addDoc, updateDoc, deleteDoc,
+  doc, orderBy, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const CAT = {
+  ticket:{name:'チケット代',color:'#7B68EE'},
+  goods: {name:'グッズ代',  color:'#FF8FAB'},
+  travel:{name:'遠征費',    color:'#FFB347'},
+  other: {name:'その他',    color:'#69D2E7'},
+};
+
+// 年セレクタ
+const thisYear = new Date().getFullYear();
+const yearSel  = document.getElementById('year-sel');
+for (let y = thisYear; y >= thisYear-5; y--) {
+  const o = document.createElement('option'); o.value=y; o.textContent=y+'年'; yearSel.appendChild(o);
+}
+
+let currentUser = null;
+let allExpenses = [];
+let pieChart = null, barChart = null;
+
+requireAuth(async (user) => {
+  currentUser = user;
+  document.getElementById('m-date').value = new Date().toISOString().split('T')[0];
+  await loadExpenses();
+});
+
+window.loadExpenses = async function() {
+  if (!currentUser) return;
+  const year   = parseInt(yearSel.value);
+  const fiscal = document.getElementById('period-type').value === 'fiscal';
+  const start  = fiscal ? year+'-04-01' : year+'-01-01';
+  const end    = fiscal ? (year+1)+'-03-31' : year+'-12-31';
+
+  try {
+    const snap = await getDocs(query(
+      collection(db,'expenses'), where('uid','==',currentUser.uid), orderBy('date','desc')
+    ));
+    allExpenses = snap.docs.map(d => ({id:d.id, ...d.data()}))
+      .filter(e => e.date >= start && e.date <= end);
+    renderExpenses(fiscal);
+  } catch(e) {
+    console.error(e);
+  }
+};
+
+function renderExpenses(fiscal) {
+  const total = allExpenses.reduce((s,e)=>s+(e.amount||0),0);
+  document.getElementById('grand-total').textContent = '¥'+total.toLocaleString();
+  document.getElementById('exp-count').textContent   = allExpenses.length+'件';
+
+  const catTotals  = {};
+  const monthTotals = Array(12).fill(0);
+  allExpenses.forEach(e => {
+    const c = e.categoryId || 'other';
+    catTotals[c] = (catTotals[c]||0) + (e.amount||0);
+    let m = parseInt((e.date||'').split('-')[1]||'1') - 1;
+    if (fiscal) m = (m-3+12)%12;
+    monthTotals[m] += (e.amount||0);
+  });
+
+  const keys = Object.keys(catTotals).filter(k=>catTotals[k]>0);
+  if (pieChart) pieChart.destroy();
+  if (barChart) barChart.destroy();
+
+  if (keys.length > 0) {
+    pieChart = new Chart(document.getElementById('pie-chart'),{
+      type:'doughnut',
+      data:{labels:keys.map(k=>CAT[k]?.name||k),datasets:[{data:keys.map(k=>catTotals[k]),backgroundColor:keys.map(k=>CAT[k]?.color||'#ccc'),borderWidth:0}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},cutout:'62%'}
+    });
+    document.getElementById('pie-legend').innerHTML = keys.map(k=>`
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:0.5px solid var(--border);">
+        <div style="width:9px;height:9px;border-radius:50%;background:${CAT[k]?.color||'#ccc'};flex-shrink:0;"></div>
+        <span style="flex:1;font-size:12px;">${CAT[k]?.name||k}</span>
+        <span style="font-size:12px;font-weight:700;">¥${catTotals[k].toLocaleString()}</span>
+        <span style="font-size:11px;color:var(--text-hint);">${Math.round(catTotals[k]/total*100)}%</span>
+      </div>`).join('');
+
+    const ml = fiscal
+      ? ['4','5','6','7','8','9','10','11','12','1','2','3']
+      : ['1','2','3','4','5','6','7','8','9','10','11','12'];
+    barChart = new Chart(document.getElementById('bar-chart'),{
+      type:'bar',
+      data:{labels:ml,datasets:[{data:monthTotals,backgroundColor:'#7B68EE',borderRadius:5}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+        scales:{y:{beginAtZero:true,ticks:{callback:v=>v===0?'':'¥'+(v/10000)+'万',font:{size:9}}},x:{ticks:{font:{size:9}}}}}
+    });
+  } else {
+    // データなし → canvas を空にしてゴミが残らないようにする
+    const pieCanvas = document.getElementById('pie-chart');
+    const barCanvas = document.getElementById('bar-chart');
+    const pieCtx = pieCanvas.getContext('2d');
+    const barCtx = barCanvas.getContext('2d');
+    pieCtx.clearRect(0, 0, pieCanvas.width, pieCanvas.height);
+    barCtx.clearRect(0, 0, barCanvas.width, barCanvas.height);
+    document.getElementById('pie-legend').innerHTML =
+      '<div style="text-align:center;padding:20px 0;color:var(--text-hint);font-size:13px;"><div style="font-size:28px;margin-bottom:8px;">📊</div>この期間のデータはありません</div>';
+  }
+
+  // 明細
+  const list = document.getElementById('exp-list');
+  if (allExpenses.length === 0) {
+    list.innerHTML = '<div class="empty-state" style="padding:1.5rem 0;"><div class="empty-icon">💸</div><p>この期間の明細はありません</p></div>';
+    return;
+  }
+  list.innerHTML = allExpenses.map(e => {
+    const c = CAT[e.categoryId||'other'] || CAT.other;
+    const d = e.date ? new Date(e.date).toLocaleDateString('ja-JP',{month:'short',day:'numeric'}) : '';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:0.5px solid var(--border);">
+      <div style="width:9px;height:9px;border-radius:50%;background:${c.color};flex-shrink:0;"></div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:500;">${c.name}</div>
+        <div style="font-size:10px;color:var(--text-hint);">${d}${e.venue?' · '+e.venue:''}${e.memo?' · '+e.memo:''}</div>
+      </div>
+      <div style="font-size:13px;font-weight:700;">¥${(e.amount||0).toLocaleString()}</div>
+      <div style="display:flex;gap:4px;">
+        <button onclick="openEdit('${e.id}')" style="border:none;background:none;cursor:pointer;font-size:15px;color:var(--text-hint);">✏️</button>
+        <button onclick="confirmDelete('${e.id}')" style="border:none;background:none;cursor:pointer;font-size:15px;color:var(--text-hint);">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+window.showAddModal = function() {
+  document.getElementById('modal-title').textContent  = '費用を追加';
+  document.getElementById('edit-id').value = '';
+  document.getElementById('m-cat').value   = 'ticket';
+  document.getElementById('m-venue').value = '';
+  document.getElementById('m-amount').value= '';
+  document.getElementById('m-date').value  = new Date().toISOString().split('T')[0];
+  document.getElementById('m-memo').value  = '';
+  document.getElementById('modal-msg').className = 'msg';
+  document.getElementById('m-del-btn').style.display  = 'none';
+  document.getElementById('modal').style.display = 'flex';
+};
+
+window.openEdit = function(id) {
+  const e = allExpenses.find(x=>x.id===id);
+  if (!e) return;
+  document.getElementById('modal-title').textContent   = '費用を編集';
+  document.getElementById('edit-id').value  = id;
+  document.getElementById('m-cat').value    = e.categoryId || 'other';
+  document.getElementById('m-venue').value  = e.venue || '';
+  document.getElementById('m-amount').value = e.amount || '';
+  document.getElementById('m-date').value   = e.date || '';
+  document.getElementById('m-memo').value   = e.memo || '';
+  document.getElementById('modal-msg').className = 'msg';
+  document.getElementById('m-del-btn').style.display  = '';
+  document.getElementById('modal').style.display = 'flex';
+};
+
+window.hideModal = function(e) {
+  if (!e || e.target === document.getElementById('modal'))
+    document.getElementById('modal').style.display = 'none';
+};
+
+window.saveExpense = async function() {
+  const amount = parseInt(document.getElementById('m-amount').value)||0;
+  const date   = document.getElementById('m-date').value;
+  const msgEl  = document.getElementById('modal-msg');
+  if (!amount||amount<=0) { msgEl.textContent='金額を入力してください'; msgEl.className='msg error'; return; }
+  if (!date)              { msgEl.textContent='日付を入力してください'; msgEl.className='msg error'; return; }
+  msgEl.className='msg';
+
+  const editId = document.getElementById('edit-id').value;
+  const data = {
+    categoryId: document.getElementById('m-cat').value,
+    venue:      document.getElementById('m-venue').value,
+    amount, date,
+    memo: document.getElementById('m-memo').value.trim(),
+  };
+
+  const btn = document.getElementById('m-save-btn');
+  btn.disabled=true; btn.textContent='保存中…';
+  try {
+    if (editId) {
+      await updateDoc(doc(db,'expenses',editId), data);
+    } else {
+      await addDoc(collection(db,'expenses'), { ...data, uid:currentUser.uid, createdAt:serverTimestamp() });
+    }
+    document.getElementById('modal').style.display='none';
+    await loadExpenses();
+  } catch(e) {
+    console.error(e);
+    msgEl.textContent='保存に失敗しました'; msgEl.className='msg error';
+  }
+  btn.disabled=false; btn.textContent='保存する';
+};
+
+window.confirmDelete = async function(id) {
+  document.getElementById('edit-id').value = id;
+  deleteExpense();
+};
+
+window.deleteExpense = async function() {
+  const id = document.getElementById('edit-id').value;
+  if (!id||!confirm('この記録を削除しますか？')) return;
+  try {
+    await deleteDoc(doc(db,'expenses',id));
+    document.getElementById('modal').style.display='none';
+    await loadExpenses();
+  } catch(e) {
+    console.error(e);
+    alert('削除に失敗しました');
+  }
+};
+</script>
+</body>
+</html>
