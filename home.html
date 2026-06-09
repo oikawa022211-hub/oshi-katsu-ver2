@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>推し活記録 - ホーム</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💜</text></svg>" />
+</head>
+<body>
+
+<header class="app-header">
+  <span class="header-title">💜 推し活記録</span>
+  <div class="header-right">
+    <button class="icon-btn" onclick="doLogout()" title="ログアウト">🚪</button>
+  </div>
+</header>
+
+<main class="app-content">
+  <div style="margin-bottom:16px;">
+    <p style="font-size:12px;color:var(--text-sub);">おかえり！</p>
+    <p id="greeting-name" style="font-size:1.1rem;font-weight:700;">読み込み中…</p>
+  </div>
+
+  <!-- サマリー -->
+  <div class="stat-row">
+    <div class="stat-box"><div class="stat-label">今年の参戦回数</div><div class="stat-value primary" id="year-count">-</div></div>
+    <div class="stat-box"><div class="stat-label">今年の総費用</div><div class="stat-value primary" id="year-cost">-</div></div>
+  </div>
+
+  <!-- 本日の予定 -->
+  <div class="section-title">本日の予定</div>
+  <div id="today-area"></div>
+
+  <!-- メニュー -->
+  <div class="section-title">メニュー</div>
+  <div class="home-grid">
+    <a href="venues.html" class="home-card">
+      <div class="home-card-icon" style="background:linear-gradient(135deg,#7B68EE,#9B8FF5);">🏟️</div>
+      <div class="home-card-title">参戦会場一覧</div>
+      <div class="home-card-sub">座席・会場記録の確認</div>
+    </a>
+    <a href="expenses.html" class="home-card">
+      <div class="home-card-icon" style="background:linear-gradient(135deg,#FF8FAB,#FF6B8A);">💸</div>
+      <div class="home-card-title">推し活費用一覧</div>
+      <div class="home-card-sub">収支グラフ・費用入力</div>
+    </a>
+    <a href="calendar.html" class="home-card">
+      <div class="home-card-icon" style="background:linear-gradient(135deg,#FFB347,#FF8C00);">📅</div>
+      <div class="home-card-title">推し活カレンダー</div>
+      <div class="home-card-sub">スケジュール管理</div>
+    </a>
+    <a href="timeline.html" class="home-card">
+      <div class="home-card-icon" style="background:linear-gradient(135deg,#69D2E7,#36A2C9);">📸</div>
+      <div class="home-card-title">履歴</div>
+      <div class="home-card-sub">タイムラインで振り返り</div>
+    </a>
+  </div>
+</main>
+
+<script type="module">
+import { requireAuth, logout } from './js/auth-guard.js';
+import { db } from './js/firebase.js';
+import {
+  collection, query, where, getDocs, orderBy
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+window.doLogout = logout;
+
+requireAuth(async (user) => {
+  document.getElementById('greeting-name').textContent =
+    (user.displayName || 'ファン') + ' さん 🌸';
+
+  const uid = user.uid;
+  const thisYear = new Date().getFullYear();
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  try {
+    // 座席記録
+    const seatsSnap = await getDocs(
+      query(collection(db, 'seats'), where('uid', '==', uid))
+    );
+    let yearCount = 0;
+    let todaySeats = [];
+    seatsSnap.forEach(doc => {
+      const d = doc.data();
+      if (d.date && new Date(d.date).getFullYear() === thisYear) yearCount++;
+      if (d.date === todayStr) todaySeats.push(d);
+    });
+    document.getElementById('year-count').textContent = yearCount + '回';
+
+    // 費用
+    const expSnap = await getDocs(
+      query(collection(db, 'expenses'), where('uid', '==', uid))
+    );
+    let yearCost = 0;
+    expSnap.forEach(doc => {
+      const d = doc.data();
+      if (d.date && new Date(d.date).getFullYear() === thisYear) yearCost += (d.amount || 0);
+    });
+    document.getElementById('year-cost').textContent = '¥' + yearCost.toLocaleString();
+
+    // カレンダー予定（today）
+    const calSnap = await getDocs(
+      query(collection(db, 'calendar'), where('uid', '==', uid), where('date', '==', todayStr))
+    );
+    const todayCalEvents = [];
+    calSnap.forEach(doc => todayCalEvents.push(doc.data()));
+
+    // 本日の予定表示
+    const todayArea = document.getElementById('today-area');
+    const allToday = [
+      ...todaySeats.map(s => ({ type: 'seat', title: s.live || s.venue, venue: s.venue })),
+      ...todayCalEvents.map(e => ({ type: 'plan', title: e.title, venue: e.venue || '' })),
+    ];
+
+    if (allToday.length === 0) {
+      todayArea.innerHTML = `
+        <div style="background:var(--surface2);border-radius:var(--radius);padding:12px 14px;display:flex;align-items:center;gap:10px;margin-bottom:16px;color:var(--text-sub);font-size:13px;">
+          <span>📭</span>
+          <div>今日の予定はありません<br><span style="font-size:11px;color:var(--text-hint);">カレンダーから予定を追加できます</span></div>
+        </div>`;
+    } else {
+      todayArea.innerHTML = allToday.map(ev => `
+        <div style="background:var(--surface);border:2px solid var(--primary-light);border-radius:var(--radius);padding:14px;margin-bottom:10px;">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+            <div style="width:7px;height:7px;border-radius:50%;background:var(--primary);"></div>
+            <span style="font-size:11px;font-weight:700;color:var(--primary);">TODAY</span>
+          </div>
+          <div style="font-size:14px;font-weight:700;">${ev.title || '—'}</div>
+          ${ev.venue ? `<div style="font-size:12px;color:var(--text-sub);margin-top:3px;">📍 ${ev.venue}</div>` : ''}
+          <a href="calendar.html" style="display:block;margin-top:10px;padding:7px;background:var(--primary-light);color:var(--primary-dark);border-radius:var(--radius-sm);font-size:12px;text-align:center;text-decoration:none;">カレンダーで詳細を見る</a>
+        </div>`).join('');
+    }
+  } catch (e) {
+    console.error('ホームデータ取得エラー:', e);
+  }
+});
+</script>
+</body>
+</html>

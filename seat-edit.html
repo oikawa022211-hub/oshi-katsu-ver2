@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>推し活記録 - 座席を編集</title>
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+<header class="app-header">
+  <button class="icon-btn" onclick="history.back()">←</button>
+  <span class="header-title">座席を編集</span>
+  <div></div>
+</header>
+<main class="app-content">
+  <div id="msg" class="msg"></div>
+  <div class="section-title">会場・公演情報</div>
+  <div class="card">
+    <div class="field">
+      <label>会場名</label>
+      <select id="venue" onchange="toggleOther()">
+        <option value="">会場を選択</option>
+        <option value="東京ドーム">東京ドーム</option>
+        <option value="京セラドーム大阪">京セラドーム大阪</option>
+        <option value="バンテリンドームナゴヤ">バンテリンドームナゴヤ</option>
+        <option value="みずほPayPayドーム福岡">みずほPayPayドーム福岡</option>
+        <option value="明治神宮野球場">明治神宮野球場</option>
+        <option value="other">その他（自由入力）</option>
+      </select>
+    </div>
+    <div class="field" id="other-wrap" style="display:none;">
+      <label>会場名（自由入力）</label>
+      <input type="text" id="venue-other"/>
+    </div>
+    <div class="field"><label>公演名・ツアー名（任意）</label><input type="text" id="live"/></div>
+    <div class="field"><label>日付</label><input type="date" id="date"/></div>
+  </div>
+  <div class="section-title">座席情報</div>
+  <div class="card">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="field"><label>ブロック・エリア</label><input type="text" id="block"/></div>
+      <div class="field"><label>列</label><input type="text" id="row"/></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="field"><label>番号</label><input type="text" id="num"/></div>
+      <div class="field"><label>ゲート（任意）</label><input type="text" id="gate"/></div>
+    </div>
+    <div class="field"><label>メモ（任意）</label><textarea id="memo"></textarea></div>
+  </div>
+  <button class="btn-primary" id="btn-save" onclick="saveSeat()">変更を保存</button>
+</main>
+
+<script type="module">
+import { requireAuth } from './js/auth-guard.js';
+import { db } from './js/firebase.js';
+import { doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const id = new URLSearchParams(location.search).get('id');
+if (!id) { location.href = 'venues.html'; }
+
+const KNOWN_VENUES = ['東京ドーム','京セラドーム大阪','バンテリンドームナゴヤ','みずほPayPayドーム福岡','明治神宮野球場'];
+
+window.toggleOther = function() {
+  document.getElementById('other-wrap').style.display =
+    document.getElementById('venue').value === 'other' ? '' : 'none';
+};
+
+requireAuth(async (user) => {
+  try {
+    const snap = await getDoc(doc(db, 'seats', id));
+    if (!snap.exists() || snap.data().uid !== user.uid) {
+      location.href = 'venues.html'; return;
+    }
+    const s = snap.data();
+    // 既知の会場かチェック
+    const isKnown = KNOWN_VENUES.includes(s.venue);
+    document.getElementById('venue').value = isKnown ? s.venue : 'other';
+    if (!isKnown) {
+      document.getElementById('venue-other').value = s.venue || '';
+      document.getElementById('other-wrap').style.display = '';
+    }
+    document.getElementById('live').value  = s.live  || '';
+    document.getElementById('date').value  = s.date  || '';
+    document.getElementById('block').value = s.block || '';
+    document.getElementById('row').value   = s.row   || '';
+    document.getElementById('num').value   = s.num   || '';
+    document.getElementById('gate').value  = s.gate  || '';
+    document.getElementById('memo').value  = s.memo  || '';
+  } catch(e) {
+    console.error(e); location.href = 'venues.html';
+  }
+});
+
+window.saveSeat = async function() {
+  const venueVal = document.getElementById('venue').value;
+  const venue    = venueVal === 'other'
+    ? document.getElementById('venue-other').value.trim() : venueVal;
+  const date     = document.getElementById('date').value;
+  const msg      = document.getElementById('msg');
+
+  if (!venue) { msg.textContent='会場を選択してください'; msg.className='msg error'; return; }
+  if (!date)  { msg.textContent='日付を入力してください'; msg.className='msg error'; return; }
+  msg.className = 'msg';
+
+  const btn = document.getElementById('btn-save');
+  btn.disabled = true; btn.textContent = '保存中…';
+  try {
+    await updateDoc(doc(db, 'seats', id), {
+      venue,
+      live:  document.getElementById('live').value.trim(),
+      date,
+      block: document.getElementById('block').value.trim(),
+      row:   document.getElementById('row').value.trim(),
+      num:   document.getElementById('num').value.trim(),
+      gate:  document.getElementById('gate').value.trim(),
+      memo:  document.getElementById('memo').value.trim(),
+    });
+    location.href = `venue-detail.html?venue=${encodeURIComponent(venue)}`;
+  } catch(e) {
+    console.error(e);
+    msg.textContent = '保存に失敗しました'; msg.className = 'msg error';
+    btn.disabled = false; btn.textContent = '変更を保存';
+  }
+};
+</script>
+</body>
+</html>
