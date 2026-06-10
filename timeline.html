@@ -9,8 +9,8 @@
 <body>
 <header class="app-header">
   <button class="icon-btn" onclick="location.href='home.html'">←</button>
-  <span class="header-title">履歴</span>
-  <div></div>
+  <span class="header-title" style="text-align:center;flex:1;">履歴</span>
+  <div style="width:36px;"></div>
 </header>
 <main class="app-content">
   <div class="stat-row">
@@ -27,84 +27,114 @@ import { requireAuth } from './js/auth-guard.js';
 import { db } from './js/firebase.js';
 import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-const CAT={ticket:'チケット代',goods:'グッズ代',travel:'遠征費',other:'その他'};
-  function getCat(e){ return e.categoryId || e.cat || 'other'; }
-const VICO={'東京ドーム':'🗼','京セラドーム大阪':'🏯','バンテリンドームナゴヤ':'⛩️','みずほPayPayドーム福岡':'🌊','明治神宮野球場':'⚾'};
-let seats=[],expenses=[],tlFilter=null;
+const CAT = { ticket:'チケット代', goods:'グッズ代', travel:'遠征費', other:'その他' };
+const VICO = { '東京ドーム':'🗼', '京セラドーム大阪':'🏯', 'バンテリンドームナゴヤ':'⛩️', 'みずほPayPayドーム福岡':'🌊', '明治神宮野球場':'⚾' };
 
-requireAuth(async(user)=>{
-  const uid=user.uid;
-  const body=document.getElementById('tl-body');
-  try{
-  const [ss,es]=await Promise.all([
-    getDocs(query(collection(db,'seats'),where('uid','==',uid))),
-    getDocs(query(collection(db,'expenses'),where('uid','==',uid))),
-  ]);
-  seats=ss.docs.map(d=>({id:d.id,...d.data()}));
-  expenses=es.docs.map(d=>({id:d.id,...d.data()}));
-  renderTimeline();
-});
+let seats = [], expenses = [], tlFilter = null;
 
-function renderTimeline(){
-  const venues=[...new Set(seats.map(s=>s.venue))];
-  document.getElementById('tl-filters').innerHTML=
-    ['すべて',...venues].map(v=>{
-      const isAll=v==='すべて',active=isAll?tlFilter===null:tlFilter===v;
-      return `<button onclick="setFilter('${v}')" style="padding:5px 12px;border-radius:20px;border:1.5px solid ${active?'var(--primary)':'var(--border)'};background:${active?'var(--primary-light)':'var(--surface)'};color:${active?'var(--primary-dark)':'var(--text-sub)'};font-size:12px;font-weight:${active?'700':'400'};cursor:pointer;font-family:inherit;">${isAll?'📋':(VICO[v]||'🎵')} ${v}</button>`;
-    }).join('');
-
-  const filtered=tlFilter?seats.filter(s=>s.venue===tlFilter):seats;
-  const totalCost=filtered.reduce((s,r)=>{
-    return s+expenses.filter(e=>e.venue===r.venue&&e.date===r.date).reduce((a,b)=>a+(b.amount||0),0);
-  },0);
-  document.getElementById('tl-cnt').textContent=filtered.length+'回';
-  document.getElementById('tl-cost').textContent='¥'+totalCost.toLocaleString();
-
-  if(!filtered.length){document.getElementById('tl-body').innerHTML='<div class="empty-state"><div class="empty-icon">📸</div><h3>記録がありません</h3></div>';return;}
-
-  const byY={};
-  [...filtered].sort((a,b)=>b.date.localeCompare(a.date)).forEach(s=>{
-    const y=s.date?new Date(s.date).getFullYear():'不明';
-    if(!byY[y])byY[y]=[];byY[y].push(s);
-  });
-
-  const DOTC=['#7B68EE','#FF8FAB','#FFB347','#36A2C9'];
-  let html='<div style="position:relative;padding-left:22px;">';
-  html+='<div style="position:absolute;left:6px;top:28px;bottom:0;width:2px;background:var(--primary);border-radius:2px;"></div>';
-  let ci=0;
-  Object.entries(byY).sort((a,b)=>parseInt(b[0])-parseInt(a[0])).forEach(([year,recs])=>{
-    html+=`<div style="font-size:12px;font-weight:700;color:var(--primary);margin-bottom:10px;padding-left:10px;">${year}年</div>`;
-    recs.forEach(s=>{
-      const d=s.date?new Date(s.date).toLocaleDateString('ja-JP',{month:'long',day:'numeric',weekday:'short'}):'日付不明';
-      const parts=[s.block,s.row,s.num].filter(Boolean).join(' · ');
-      const relExp=expenses.filter(e=>e.venue===s.venue&&e.date===s.date);
-      const expTot=relExp.reduce((a,b)=>a+(b.amount||0),0);
-      const dc=DOTC[ci%DOTC.length];ci++;
-      html+=`<div style="position:relative;margin-bottom:13px;">
-        <div style="position:absolute;left:-18px;top:13px;width:12px;height:12px;border-radius:50%;background:${dc};border:2px solid var(--bg);box-shadow:0 0 0 2px ${dc};"></div>
-        <div class="card">
-          <div style="font-size:10px;color:var(--text-hint);margin-bottom:3px;">${d}</div>
-          <div style="font-size:14px;font-weight:700;">${VICO[s.venue]||'🎵'} ${s.venue}</div>
-          ${s.live?`<div style="font-size:11px;color:var(--text-sub);margin-top:2px;">${s.live}</div>`:''}
-          ${parts?`<div style="font-size:11px;color:var(--text-sub);margin-top:3px;">💺 ${parts}</div>`:''}
-          ${s.gate?`<div style="font-size:11px;color:var(--text-sub);">🚪 ${s.gate}ゲート</div>`:''}
-          ${expTot>0?`<div style="font-size:13px;font-weight:700;color:var(--primary);margin-top:6px;">¥${expTot.toLocaleString()}</div>`:''}
-          ${relExp.length>0?`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:5px;">${relExp.map(e=>`<span style="font-size:10px;padding:2px 8px;border-radius:20px;background:var(--primary-light);color:var(--primary-dark);">${CAT[getCat(e)]||'その他'} ¥${(e.amount||0).toLocaleString()}</span>`).join('')}</div>`:''}
-          ${s.memo?`<div style="font-size:11px;color:var(--text-sub);margin-top:7px;padding:7px 9px;background:var(--surface2);border-radius:var(--radius-sm);">💬 ${s.memo}</div>`:''}
-        </div>
-      </div>`;
-    });
-  });
-  html+='</div>';
-  document.getElementById('tl-body').innerHTML=html;
+function getCatName(e) {
+  const key = e.categoryId || e.cat || 'other';
+  return CAT[key] || 'その他';
 }
 
-window.setFilter = v=>{ tlFilter=v==='すべて'?null:v; renderTimeline(); };
-  } catch(e) {
+requireAuth(async (user) => {
+  const uid = user.uid;
+  const body = document.getElementById('tl-body');
+  try {
+    // 並列取得・orderByなし（インデックス不要）
+    const [ss, es] = await Promise.all([
+      getDocs(query(collection(db, 'seats'),    where('uid', '==', uid))),
+      getDocs(query(collection(db, 'expenses'), where('uid', '==', uid))),
+    ]);
+    seats    = ss.docs.map(d => ({ id: d.id, ...d.data() }));
+    expenses = es.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderTimeline();
+  } catch (e) {
     console.error('timeline load error:', e);
-    document.getElementById('tl-body').innerHTML =
-      '<p style="color:var(--text-hint);text-align:center;padding:2rem;">読み込みに失敗しました。<br>再読み込みしてください。</p>';
+    body.innerHTML = '<p style="color:var(--text-hint);text-align:center;padding:2rem;">読み込みに失敗しました。<br>ページを再読み込みしてください。</p>';
   }
+});
+
+function renderTimeline() {
+  const venues = [...new Set(seats.map(s => s.venue).filter(Boolean))];
+
+  // 絞り込みボタン
+  document.getElementById('tl-filters').innerHTML =
+    ['すべて', ...venues].map(v => {
+      const isAll = v === 'すべて';
+      const active = isAll ? tlFilter === null : tlFilter === v;
+      return `<button onclick="setFilter('${v}')" style="padding:6px 14px;border-radius:20px;border:1.5px solid ${active ? 'var(--primary)' : 'var(--border)'};background:${active ? 'var(--primary-light)' : 'var(--surface)'};color:${active ? 'var(--primary-dark)' : 'var(--text-sub)'};font-size:13px;font-weight:${active ? '700' : '400'};cursor:pointer;min-height:36px;">${isAll ? '📋' : (VICO[v] || '🎵')} ${v}</button>`;
+    }).join('');
+
+  const filtered = tlFilter ? seats.filter(s => s.venue === tlFilter) : seats;
+
+  // 累計費用（絞り込み対象のみ）
+  const totalCost = filtered.reduce((sum, s) => {
+    return sum + expenses
+      .filter(e => e.venue === s.venue && e.date === s.date)
+      .reduce((a, b) => a + (b.amount || 0), 0);
+  }, 0);
+  document.getElementById('tl-cnt').textContent  = filtered.length + '回';
+  document.getElementById('tl-cost').textContent = '¥' + totalCost.toLocaleString();
+
+  const body = document.getElementById('tl-body');
+  if (!filtered.length) {
+    body.innerHTML = '<div class="empty-state"><div class="empty-icon">📸</div><h3>記録がありません</h3><p>参戦会場一覧から記録を追加しよう！</p></div>';
+    return;
+  }
+
+  // 年でグループ化（JS側でソート）
+  const byYear = {};
+  [...filtered]
+    .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+    .forEach(s => {
+      const y = s.date ? new Date(s.date).getFullYear() : '不明';
+      if (!byYear[y]) byYear[y] = [];
+      byYear[y].push(s);
+    });
+
+  const DOTC = ['#7B68EE', '#FF8FAB', '#FFB347', '#36A2C9'];
+  let html = '<div style="position:relative;padding-left:22px;">';
+  html += '<div style="position:absolute;left:6px;top:28px;bottom:0;width:2px;background:var(--primary);border-radius:2px;"></div>';
+  let ci = 0;
+
+  Object.entries(byYear)
+    .sort((a, b) => parseInt(b[0]) - parseInt(a[0]))
+    .forEach(([year, recs]) => {
+      html += `<div style="font-size:12px;font-weight:700;color:var(--primary);margin-bottom:10px;padding-left:10px;">${year}年</div>`;
+      recs.forEach(s => {
+        const d = s.date
+          ? new Date(s.date).toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', weekday: 'short' })
+          : '日付不明';
+        const parts = [s.block, s.row, s.num].filter(Boolean).join(' · ');
+        const relExp = expenses.filter(e => e.venue === s.venue && e.date === s.date);
+        const expTot = relExp.reduce((a, b) => a + (b.amount || 0), 0);
+        const dc = DOTC[ci % DOTC.length]; ci++;
+
+        html += `
+          <div style="position:relative;margin-bottom:13px;">
+            <div style="position:absolute;left:-18px;top:13px;width:12px;height:12px;border-radius:50%;background:${dc};border:2px solid var(--bg);box-shadow:0 0 0 2px ${dc};"></div>
+            <div class="card">
+              <div style="font-size:10px;color:var(--text-hint);margin-bottom:3px;">${d}</div>
+              <div style="font-size:14px;font-weight:700;">${VICO[s.venue] || '🎵'} ${s.venue}</div>
+              ${s.live  ? `<div style="font-size:11px;color:var(--text-sub);margin-top:2px;">${s.live}</div>` : ''}
+              ${parts   ? `<div style="font-size:11px;color:var(--text-sub);margin-top:3px;">💺 ${parts}</div>` : ''}
+              ${s.gate  ? `<div style="font-size:11px;color:var(--text-sub);">🚪 ${s.gate}ゲート</div>` : ''}
+              ${expTot > 0 ? `<div style="font-size:13px;font-weight:700;color:var(--primary);margin-top:6px;">¥${expTot.toLocaleString()}</div>` : ''}
+              ${relExp.length > 0 ? `<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:5px;">
+                ${relExp.map(e => `<span style="font-size:10px;padding:2px 8px;border-radius:20px;background:var(--primary-light);color:var(--primary-dark);">${getCatName(e)} ¥${(e.amount || 0).toLocaleString()}</span>`).join('')}
+              </div>` : ''}
+              ${s.memo ? `<div style="font-size:11px;color:var(--text-sub);margin-top:7px;padding:7px 9px;background:var(--surface2);border-radius:var(--radius-sm);">💬 ${s.memo}</div>` : ''}
+            </div>
+          </div>`;
+      });
+    });
+
+  html += '</div>';
+  body.innerHTML = html;
+}
+
+window.setFilter = v => { tlFilter = v === 'すべて' ? null : v; renderTimeline(); };
 </script>
 </body>
 </html>

@@ -5,105 +5,275 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>推し活記録 - カレンダー</title>
   <link rel="stylesheet" href="css/style.css"/>
+  <style>
+    .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:3px; }
+    .cal-lbl-cell { text-align:center; font-size:11px; padding:4px 0; font-weight:500; }
+    .cal-cell {
+      aspect-ratio:1; border-radius:8px; display:flex; flex-direction:column;
+      align-items:center; justify-content:center; font-size:13px;
+      cursor:pointer; position:relative; color:var(--text);
+      transition: background .15s;
+    }
+    .cal-cell:active { opacity:.7; }
+    .cal-cell.today { background:var(--primary); color:#fff; font-weight:700; }
+    .cal-cell.has-seat::after {
+      content:''; width:5px; height:5px;
+      background:var(--accent); border-radius:50%;
+      position:absolute; bottom:3px;
+    }
+    .cal-cell.has-memo::before {
+      content:''; width:5px; height:5px;
+      background:var(--amb, #FFB347); border-radius:50%;
+      position:absolute; bottom:3px; left:calc(50% + 4px);
+    }
+    .cal-cell.has-seat.has-memo::after { left:calc(50% - 4px); }
+    .cal-cell.today.has-seat::after,
+    .cal-cell.today.has-memo::before { background:rgba(255,255,255,.8); }
+    .cal-cell.sun { color:var(--accent); }
+    .cal-cell.sat { color:var(--primary); }
+    .cal-cell.today.sun, .cal-cell.today.sat { color:#fff; }
+    .detail-box {
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:var(--radius); padding:14px; margin-top:12px;
+    }
+    .detail-title { font-size:13px; font-weight:700; margin-bottom:10px; color:var(--text); }
+    .seat-badge {
+      display:inline-block; background:var(--primary-light); color:var(--primary-dark);
+      font-size:10px; padding:2px 8px; border-radius:20px; margin-bottom:4px;
+    }
+    .memo-input {
+      width:100%; padding:9px 12px; border:1.5px solid var(--border);
+      border-radius:var(--radius-sm); font-size:16px;
+      font-family:inherit; background:var(--surface2); color:var(--text);
+      resize:none; min-height:72px; margin-top:8px;
+    }
+    .memo-input:focus { outline:none; border-color:var(--primary); background:var(--surface); }
+    .memo-save-btn {
+      margin-top:8px; padding:9px 20px; background:var(--primary); color:#fff;
+      border:none; border-radius:var(--radius-sm); font-size:13px; font-weight:700;
+      cursor:pointer; font-family:inherit;
+    }
+    .memo-card {
+      background:var(--surface2); border-radius:var(--radius-sm);
+      padding:9px 12px; margin-top:8px; font-size:12px; color:var(--text-sub);
+      display:flex; justify-content:space-between; align-items:flex-start; gap:8px;
+    }
+    .memo-del { border:none; background:none; color:var(--text-hint); cursor:pointer; font-size:14px; flex-shrink:0; }
+  </style>
 </head>
 <body>
 <header class="app-header">
   <button class="icon-btn" onclick="location.href='home.html'">←</button>
-  <span class="header-title">推し活カレンダー</span>
-  <button class="icon-btn" onclick="location.href='cal-add.html'" style="background:var(--primary);color:white;font-size:1.2rem;">＋</button>
+  <span class="header-title" style="text-align:center;flex:1;">推し活カレンダー</span>
+  <div style="width:36px;"></div>
 </header>
 <main class="app-content">
-  <div style="font-size:11px;color:var(--primary-dark);background:var(--primary-light);border-radius:var(--radius-sm);padding:8px 12px;margin-bottom:12px;">
-    💡 座席登録した日付は自動でカレンダーに反映されます
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+    <button class="icon-btn" onclick="calNav(-1)" style="font-size:22px;">‹</button>
+    <span style="font-size:17px;font-weight:700;" id="cal-lbl"></span>
+    <button class="icon-btn" onclick="calNav(1)" style="font-size:22px;">›</button>
   </div>
-  <div class="card">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-      <button class="icon-btn" onclick="calNav(-1)">‹</button>
-      <span style="font-size:16px;font-weight:700;" id="cal-lbl"></span>
-      <button class="icon-btn" onclick="calNav(1)">›</button>
+
+  <div class="card" style="padding:10px;">
+    <!-- 凡例 -->
+    <div style="display:flex;gap:14px;margin-bottom:10px;font-size:11px;color:var(--text-sub);">
+      <div style="display:flex;align-items:center;gap:4px;"><div style="width:7px;height:7px;border-radius:50%;background:var(--accent);"></div>参戦記録</div>
+      <div style="display:flex;align-items:center;gap:4px;"><div style="width:7px;height:7px;border-radius:50%;background:#FFB347;"></div>メモ</div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;" id="cal-labels"></div>
-    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:4px;" id="cal-cells"></div>
-    <div id="cal-detail" style="background:var(--primary-light);border-radius:var(--radius-sm);padding:10px 12px;margin-top:10px;display:none;"></div>
+    <div class="cal-grid" id="cal-labels"></div>
+    <div class="cal-grid" id="cal-cells" style="margin-top:4px;gap:4px;"></div>
   </div>
-  <div class="section-title">今月の予定</div>
-  <div id="cal-events"></div>
+
+  <div id="cal-detail" style="display:none;"></div>
+
+  <div class="section-title" style="margin-top:14px;">今月の参戦記録</div>
+  <div id="cal-month-list"></div>
 </main>
 
 <script type="module">
 import { requireAuth } from './js/auth-guard.js';
 import { db } from './js/firebase.js';
-import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import {
+  collection, query, where, getDocs,
+  doc, setDoc, deleteDoc, getDoc
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-const pad = n => String(n).padStart(2,'0');
+const pad = n => String(n).padStart(2, '0');
 const today = new Date();
 let calY = today.getFullYear(), calM = today.getMonth();
-let seats = [], calEvs = {};
+let seats = [], memos = {}, currentUser = null;
+let selectedDate = null;
 
 requireAuth(async (user) => {
+  currentUser = user;
   const uid = user.uid;
-  const [sSnap, cSnap] = await Promise.all([
-    getDocs(query(collection(db,'seats'), where('uid','==',uid))),
-    getDocs(query(collection(db,'calendar'), where('uid','==',uid))),
-  ]);
-  seats = sSnap.docs.map(d=>({id:d.id,...d.data()}));
-  cSnap.docs.forEach(d=>{ const v=d.data(); calEvs[v.date]=v; });
-  renderCal();
+  try {
+    // 参戦座席データ取得
+    const ss = await getDocs(query(collection(db, 'seats'), where('uid', '==', uid)));
+    seats = ss.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    // カレンダーメモ取得（uid単位のドキュメント）
+    const memoDoc = await getDoc(doc(db, 'calMemos', uid));
+    if (memoDoc.exists()) memos = memoDoc.data().memos || {};
+
+    renderCal();
+  } catch (e) {
+    console.error('calendar load error:', e);
+  }
 });
 
-function getAllEvs(){
-  const m={};
-  seats.forEach(s=>{if(!s.date)return;if(!m[s.date])m[s.date]=[];m[s.date].push({type:'seat',title:s.live||s.venue,venue:s.venue,seat:[s.block,s.row,s.num].filter(Boolean).join(' · ')});});
-  Object.entries(calEvs).forEach(([k,v])=>{if(!m[k])m[k]=[];m[k].push({type:'plan',title:v.title,venue:v.venue||''});});
-  return m;
-}
-
-window.calNav = d=>{calM+=d;if(calM<0){calM=11;calY--;}if(calM>11){calM=0;calY++;}renderCal();};
-
-function renderCal(){
-  const all=getAllEvs();
-  document.getElementById('cal-lbl').textContent=calY+'年'+(calM+1)+'月';
-  const DL=['日','月','火','水','木','金','土'];
-  document.getElementById('cal-labels').innerHTML=DL.map((d,i)=>`<div style="text-align:center;font-size:10px;color:${i===0?'var(--accent)':i===6?'var(--primary)':'var(--text-hint)'};padding:3px 0;">${d}</div>`).join('');
-  const first=new Date(calY,calM,1).getDay(),days=new Date(calY,calM+1,0).getDate();
-  let h='';
-  for(let i=0;i<first;i++)h+='<div></div>';
-  for(let d=1;d<=days;d++){
-    const ds=calY+'-'+pad(calM+1)+'-'+pad(d);
-    const isT=d===today.getDate()&&calM===today.getMonth()&&calY===today.getFullYear();
-    const hasEv=!!(all[ds]&&all[ds].length);
-    const dow=(first+d-1)%7;
-    const color=isT?'':(dow===0?'color:var(--accent);':dow===6?'color:var(--primary);':'color:var(--text);');
-    const bg=isT?'background:var(--primary);color:white;font-weight:700;':'cursor:pointer;';
-    const dot=hasEv?'<div style="width:4px;height:4px;background:'+(isT?'white':'var(--accent)')+';border-radius:50%;position:absolute;bottom:2px;left:50%;transform:translateX(-50%);"></div>':''
-    h+=`<div onclick="calClick('${ds}',${d})" style="aspect-ratio:1;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:12px;position:relative;${bg}${color}">${d}${dot}</div>`;
-  }
-  document.getElementById('cal-cells').innerHTML=h;
-  const pfx=calY+'-'+pad(calM+1)+'-';
-  const evs=Object.entries(all).filter(([k])=>k.startsWith(pfx)).sort((a,b)=>a[0]>b[0]?1:-1);
-  const el=document.getElementById('cal-events');
-  if(!evs.length){el.innerHTML='<div class="empty-state" style="padding:1.5rem 0;"><div class="empty-icon">📅</div><p>今月の予定はありません</p></div>';return;}
-  el.innerHTML=evs.map(([k,evList])=>evList.map(ev=>{
-    const d=parseInt(k.split('-')[2]);
-    return `<div class="card" style="margin-bottom:8px;display:flex;align-items:center;gap:10px;">
-      <div style="width:36px;height:36px;background:var(--primary-light);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--primary-dark);">${d}日</div>
-      <div style="flex:1;">
-        <div style="font-size:13px;font-weight:500;">${ev.title||'—'}</div>
-        ${ev.venue?`<div style="font-size:11px;color:var(--text-hint);">📍 ${ev.venue}</div>`:''}
-        ${ev.type==='seat'&&ev.seat?`<div style="font-size:11px;color:var(--text-hint);">💺 ${ev.seat}</div>`:''}
-        <span style="font-size:10px;padding:1px 7px;border-radius:10px;${ev.type==='seat'?'background:var(--primary-light);color:var(--primary-dark);':' background:#FFF3E0;color:#633806;'}">${ev.type==='seat'?'座席登録':'参戦予定'}</span>
-      </div>
-    </div>`;
-  }).join('') ).join('');
-  document.getElementById('cal-detail').style.display='none';
-}
-
-window.calClick = (ds,d)=>{
-  const all=getAllEvs(); const evList=all[ds]; const det=document.getElementById('cal-detail');
-  det.style.display='';
-  if(!evList||!evList.length){det.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:12px;color:var(--text-hint);">${calM+1}月${d}日 — 予定なし</span><a href="cal-add.html" style="background:var(--primary);color:#fff;border:none;border-radius:var(--radius-sm);padding:5px 12px;font-size:12px;text-decoration:none;">+ 追加</a></div>`;return;}
-  det.innerHTML=evList.map(ev=>`<div style="margin-bottom:7px;"><div style="font-size:13px;font-weight:600;">${ev.title||'—'}</div>${ev.venue?`<div style="font-size:11px;color:var(--text-sub);">📍 ${ev.venue}</div>`:''}</div>`).join('')+`<a href="cal-add.html" style="font-size:12px;color:var(--primary);">+ この日に予定を追加</a>`;
+window.calNav = d => {
+  calM += d;
+  if (calM < 0) { calM = 11; calY--; }
+  if (calM > 11) { calM = 0; calY++; }
+  selectedDate = null;
+  document.getElementById('cal-detail').style.display = 'none';
+  renderCal();
 };
+
+// 日付ごとの座席データをまとめる
+function getSeatsByDate() {
+  const map = {};
+  seats.forEach(s => {
+    if (!s.date) return;
+    if (!map[s.date]) map[s.date] = [];
+    map[s.date].push(s);
+  });
+  return map;
+}
+
+function renderCal() {
+  document.getElementById('cal-lbl').textContent = calY + '年' + (calM + 1) + '月';
+  const DL = ['日', '月', '火', '水', '木', '金', '土'];
+  document.getElementById('cal-labels').innerHTML = DL.map((d, i) =>
+    `<div class="cal-lbl-cell" style="color:${i === 0 ? 'var(--accent)' : i === 6 ? 'var(--primary)' : 'var(--text-hint)'}">${d}</div>`
+  ).join('');
+
+  const seatMap = getSeatsByDate();
+  const first = new Date(calY, calM, 1).getDay();
+  const days  = new Date(calY, calM + 1, 0).getDate();
+  let h = '';
+  for (let i = 0; i < first; i++) h += '<div></div>';
+  for (let d = 1; d <= days; d++) {
+    const ds  = calY + '-' + pad(calM + 1) + '-' + pad(d);
+    const isT = d === today.getDate() && calM === today.getMonth() && calY === today.getFullYear();
+    const hasSeat = !!(seatMap[ds] && seatMap[ds].length);
+    const hasMemo = !!(memos[ds]);
+    const dow = (first + d - 1) % 7;
+    const sc  = isT ? 'today' : dow === 0 ? 'sun' : dow === 6 ? 'sat' : '';
+    const sel = selectedDate === ds ? 'outline:2px solid var(--primary);outline-offset:2px;' : '';
+    h += `<div class="cal-cell ${sc}${hasSeat ? ' has-seat' : ''}${hasMemo ? ' has-memo' : ''}"
+      style="${sel}" onclick="selectDay('${ds}', ${d})">${d}</div>`;
+  }
+  document.getElementById('cal-cells').innerHTML = h;
+  renderMonthList();
+}
+
+window.selectDay = (ds, d) => {
+  selectedDate = ds;
+  renderCal(); // ハイライト更新
+  showDetail(ds, d);
+};
+
+function showDetail(ds, d) {
+  const seatMap = getSeatsByDate();
+  const daySeats = seatMap[ds] || [];
+  const memo     = memos[ds] || '';
+  const det      = document.getElementById('cal-detail');
+  const VICO     = {'東京ドーム':'🗼','京セラドーム大阪':'🏯','バンテリンドームナゴヤ':'⛩️','みずほPayPayドーム福岡':'🌊','明治神宮野球場':'⚾'};
+
+  let html = `<div class="detail-box">
+    <div class="detail-title">${calM + 1}月${d}日（${'日月火水木金土'[new Date(ds).getDay()]}）</div>`;
+
+  // 参戦記録
+  if (daySeats.length > 0) {
+    html += '<div style="margin-bottom:10px;">';
+    daySeats.forEach(s => {
+      const parts = [s.block, s.row, s.num].filter(Boolean).join(' · ');
+      html += `<div style="padding:8px 0;border-bottom:0.5px solid var(--border);">
+        <div style="font-size:14px;font-weight:700;">${VICO[s.venue] || '🎵'} ${s.venue}</div>
+        ${s.live  ? `<div style="font-size:12px;color:var(--text-sub);margin-top:2px;">🎤 ${s.live}</div>` : ''}
+        ${parts   ? `<div style="font-size:12px;color:var(--text-sub);margin-top:2px;">💺 ${parts}</div>` : ''}
+        <span class="seat-badge">参戦記録</span>
+      </div>`;
+    });
+    html += '</div>';
+  }
+
+  // メモ表示
+  if (memo) {
+    html += `<div class="memo-card">
+      <div style="flex:1;white-space:pre-wrap;">📝 ${memo}</div>
+      <button class="memo-del" onclick="deleteMemo('${ds}')" title="メモを削除">🗑</button>
+    </div>`;
+  }
+
+  // メモ入力欄
+  html += `<div style="margin-top:10px;">
+    <div style="font-size:12px;color:var(--text-sub);margin-bottom:4px;">📝 ${memo ? 'メモを編集' : 'メモを追加'}</div>
+    <textarea class="memo-input" id="memo-input-${ds}" placeholder="この日のメモを入力…">${memo}</textarea>
+    <button class="memo-save-btn" onclick="saveMemo('${ds}')">保存</button>
+  </div>`;
+
+  html += '</div>';
+  det.innerHTML = html;
+  det.style.display = '';
+  // スクロール
+  setTimeout(() => det.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
+}
+
+window.saveMemo = async (ds) => {
+  const val = document.getElementById('memo-input-' + ds).value.trim();
+  try {
+    if (val) {
+      memos[ds] = val;
+    } else {
+      delete memos[ds];
+    }
+    await setDoc(doc(db, 'calMemos', currentUser.uid), { memos, uid: currentUser.uid });
+    renderCal();
+    showDetail(ds, parseInt(ds.split('-')[2]));
+  } catch (e) {
+    console.error('memo save error:', e);
+    alert('保存に失敗しました');
+  }
+};
+
+window.deleteMemo = async (ds) => {
+  if (!confirm('メモを削除しますか？')) return;
+  delete memos[ds];
+  try {
+    await setDoc(doc(db, 'calMemos', currentUser.uid), { memos, uid: currentUser.uid });
+    renderCal();
+    showDetail(ds, parseInt(ds.split('-')[2]));
+  } catch (e) {
+    console.error('memo delete error:', e);
+  }
+};
+
+function renderMonthList() {
+  const seatMap = getSeatsByDate();
+  const pfx = calY + '-' + pad(calM + 1) + '-';
+  const monthDates = Object.keys(seatMap).filter(k => k.startsWith(pfx)).sort();
+  const el = document.getElementById('cal-month-list');
+  const VICO = {'東京ドーム':'🗼','京セラドーム大阪':'🏯','バンテリンドームナゴヤ':'⛩️','みずほPayPayドーム福岡':'🌊','明治神宮野球場':'⚾'};
+  if (!monthDates.length) {
+    el.innerHTML = '<div class="empty-state" style="padding:1.2rem 0;"><div class="empty-icon">📅</div><p>今月の参戦記録はありません</p></div>';
+    return;
+  }
+  el.innerHTML = monthDates.map(ds => {
+    const d = parseInt(ds.split('-')[2]);
+    return seatMap[ds].map(s => `
+      <div class="card" style="margin-bottom:8px;display:flex;align-items:center;gap:10px;cursor:pointer;" onclick="selectDay('${ds}',${d})">
+        <div style="width:36px;height:36px;background:var(--primary-light);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--primary-dark);">${d}日</div>
+        <div style="flex:1;">
+          <div style="font-size:13px;font-weight:700;">${VICO[s.venue] || '🎵'} ${s.venue}</div>
+          ${s.live ? `<div style="font-size:11px;color:var(--text-hint);">${s.live}</div>` : ''}
+        </div>
+        ${memos[ds] ? '<div style="font-size:18px;">📝</div>' : ''}
+      </div>`).join('');
+  }).join('');
+}
 </script>
 </body>
 </html>

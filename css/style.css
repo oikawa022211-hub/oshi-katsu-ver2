@@ -620,3 +620,66 @@ textarea { resize: vertical; min-height: 80px; }
 .tl-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
 .tl-venue { font-size: 13px; color: var(--text-sub); margin-bottom: 8px; }
 .tl-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* ===== モバイル最適化 ===== */
+/* iOS/Android フォームリセット */
+input, select, textarea, button {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  border-radius: var(--radius-sm);
+}
+
+/* 日付入力のズレ修正 */
+input[type="date"] {
+  min-height: 44px;
+  padding: 10px 14px;
+  font-size: 16px; /* iOS自動ズーム防止（16px以上必須）*/
+  width: 100%;
+  line-height: 1.4;
+  -webkit-appearance: none;
+  background: var(--surface2);
+  color: var(--text);
+  border: 1.5px solid var(--border);
+  box-sizing: border-box;
+}
+
+/* テキスト入力もズーム防止 */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"] {
+  font-size: 16px; /* iOS自動ズーム防止 */
+  min-height: 44px;
+}
+
+select {
+  font-size: 16px;
+  min-height: 44px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23A0A0B0' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+}
+
+textarea {
+  font-size: 16px;
+  min-height: 80px;
+}
+
+/* タップ領域確保 */
+.btn-primary, .btn-google, .btn-primary, button {
+  min-height: 44px;
+}
+
+/* セーフエリア対応 */
+.app-content {
+  padding-bottom: max(90px, calc(70px + env(safe-area-inset-bottom)));
+}
+
+@media (max-width: 430px) {
+  .auth-page { padding: 16px 14px; }
+  .auth-card { padding: 18px 16px; }
+  .stat-row { gap: 8px; }
+  .stat-value { font-size: 1.1rem; }
+}
