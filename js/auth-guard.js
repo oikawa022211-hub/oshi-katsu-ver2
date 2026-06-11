@@ -15,6 +15,12 @@ export function requireAuth(callback) {
 
 export async function logout() {
   if (!confirm('ログアウトしますか？')) return;
-  await signOut(auth);
+  try {
+    await signOut(auth);
+  } catch(e) {
+    console.error('logout error:', e);
+  }
+  // ログアウト直後のリダイレクトループを防ぐフラグ
+  sessionStorage.setItem('just_logged_out', '1');
   window.location.href = 'index.html';
 }

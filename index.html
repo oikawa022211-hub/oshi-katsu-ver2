@@ -76,7 +76,13 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 // ログイン済みなら home.html へ
+// ただしログアウト直後（フラグあり）はリダイレクトしない
 onAuthStateChanged(auth, (user) => {
+  const justLoggedOut = sessionStorage.getItem('just_logged_out');
+  if (justLoggedOut) {
+    sessionStorage.removeItem('just_logged_out');
+    return; // リダイレクトしない
+  }
   if (user) window.location.href = 'home.html';
 });
 

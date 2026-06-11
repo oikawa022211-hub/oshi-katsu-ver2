@@ -33,11 +33,14 @@ body {
 /* ---- Auth pages ---- */
 .auth-page {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 1.5rem;
+  padding-top: max(1.5rem, env(safe-area-inset-top));
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
   background: linear-gradient(160deg, #EDE9FF 0%, #FAFAF8 50%, #FFE4EC 100%);
 }
 
@@ -237,7 +240,8 @@ body {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   padding: 0 1.25rem;
-  height: 56px;
+  padding-top: env(safe-area-inset-top);
+  height: calc(56px + env(safe-area-inset-top));
   display: flex;
   align-items: center;
   justify-content: space-between;
