@@ -2,10 +2,16 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0"/>
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="推し活記録"/>
+  <meta name="theme-color" content="#7B68EE"/>
+  <link rel="apple-touch-icon" href="icons/icon-192.png"/>
   <title>推し活記録 - ホーム</title>
   <link rel="stylesheet" href="css/style.css" />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💜</text></svg>" />
 </head>
 <body>
 
@@ -30,7 +36,7 @@
 
   <!-- 本日の予定 -->
   <div class="section-title">本日の予定</div>
-  <div id="today-area"></div>
+  <div id="today-area"><div class="loading"><div class="spinner"></div>読み込み中…</div></div>
 
   <!-- メニュー -->
   <div class="section-title">メニュー</div>
@@ -62,10 +68,12 @@
 import { requireAuth, logout } from './js/auth-guard.js';
 import { db } from './js/firebase.js';
 import {
-  collection, query, where, getDocs, orderBy
+  collection, query, where, getDocs, doc, getDoc
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 window.doLogout = logout;
+
+const VICO = {'東京ドーム':'🗼','京セラドーム大阪':'🏯','バンテリンドームナゴヤ':'⛩️','みずほPayPayドーム福岡':'🌊','明治神宮野球場':'⚾'};
 
 requireAuth(async (user) => {
   document.getElementById('greeting-name').textContent =
@@ -73,7 +81,9 @@ requireAuth(async (user) => {
 
   const uid = user.uid;
   const thisYear = new Date().getFullYear();
-  const todayStr = new Date().toISOString().split('T')[0];
+  const today = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const todayStr = today.getFullYear()+'-'+pad(today.getMonth()+1)+'-'+pad(today.getDate());
 
   try {
     // 座席記録
@@ -82,10 +92,10 @@ requireAuth(async (user) => {
     );
     let yearCount = 0;
     let todaySeats = [];
-    seatsSnap.forEach(doc => {
-      const d = doc.data();
-      if (d.date && new Date(d.date).getFullYear() === thisYear) yearCount++;
-      if (d.date === todayStr) todaySeats.push(d);
+    seatsSnap.forEach(d => {
+      const data = d.data();
+      if (data.date && new Date(data.date).getFullYear() === thisYear) yearCount++;
+      if (data.date === todayStr) todaySeats.push(data);
     });
     document.getElementById('year-count').textContent = yearCount + '回';
 
@@ -94,46 +104,70 @@ requireAuth(async (user) => {
       query(collection(db, 'expenses'), where('uid', '==', uid))
     );
     let yearCost = 0;
-    expSnap.forEach(doc => {
-      const d = doc.data();
-      if (d.date && new Date(d.date).getFullYear() === thisYear) yearCost += (d.amount || 0);
+    expSnap.forEach(d => {
+      const data = d.data();
+      if (data.date && new Date(data.date).getFullYear() === thisYear) yearCost += (data.amount || 0);
     });
     document.getElementById('year-cost').textContent = '¥' + yearCost.toLocaleString();
 
-    // カレンダー予定（today）
-    const calSnap = await getDocs(
-      query(collection(db, 'calendar'), where('uid', '==', uid), where('date', '==', todayStr))
-    );
-    const todayCalEvents = [];
-    calSnap.forEach(doc => todayCalEvents.push(doc.data()));
+    // カレンダーメモ（今日分）
+    let todayMemos = [];
+    const memoDoc = await getDoc(doc(db, 'calMemos', uid));
+    if (memoDoc.exists()) {
+      const memos = memoDoc.data().memos || {};
+      todayMemos = memos[todayStr] || [];
+    }
 
-    // 本日の予定表示
+    // 本日の予定をタイムライン形式（時刻順）で表示
     const todayArea = document.getElementById('today-area');
     const allToday = [
-      ...todaySeats.map(s => ({ type: 'seat', title: s.live || s.venue, venue: s.venue })),
-      ...todayCalEvents.map(e => ({ type: 'plan', title: e.title, venue: e.venue || '' })),
+      ...todaySeats.map(s => ({
+        type: 'seat',
+        start: s.startTime || '',
+        end:   s.endTime || '',
+        title: s.live || s.venue,
+        venue: s.venue,
+        seatInfo: [s.block, s.row, s.num].filter(Boolean).join(' · '),
+      })),
+      ...todayMemos.map(m => ({
+        type: 'plan',
+        start: m.start || '',
+        end:   m.end || '',
+        title: m.title,
+        venue: m.venue || '',
+      })),
     ];
+    // 時刻順にソート（時刻未設定は先頭）
+    allToday.sort((a,b) => (a.start||'').localeCompare(b.start||''));
 
     if (allToday.length === 0) {
       todayArea.innerHTML = `
-        <div style="background:var(--surface2);border-radius:var(--radius);padding:12px 14px;display:flex;align-items:center;gap:10px;margin-bottom:16px;color:var(--text-sub);font-size:13px;">
+        <div style="background:var(--surface2);border-radius:var(--radius);padding:12px 14px;display:flex;align-items:center;gap:10px;color:var(--text-sub);font-size:13px;">
           <span>📭</span>
           <div>今日の予定はありません<br><span style="font-size:11px;color:var(--text-hint);">カレンダーから予定を追加できます</span></div>
         </div>`;
     } else {
-      todayArea.innerHTML = allToday.map(ev => `
-        <div style="background:var(--surface);border:2px solid var(--primary-light);border-radius:var(--radius);padding:14px;margin-bottom:10px;">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
-            <div style="width:7px;height:7px;border-radius:50%;background:var(--primary);"></div>
-            <span style="font-size:11px;font-weight:700;color:var(--primary);">TODAY</span>
-          </div>
-          <div style="font-size:14px;font-weight:700;">${ev.title || '—'}</div>
-          ${ev.venue ? `<div style="font-size:12px;color:var(--text-sub);margin-top:3px;">📍 ${ev.venue}</div>` : ''}
-          <a href="calendar.html" style="display:block;margin-top:10px;padding:7px;background:var(--primary-light);color:var(--primary-dark);border-radius:var(--radius-sm);font-size:12px;text-align:center;text-decoration:none;">カレンダーで詳細を見る</a>
-        </div>`).join('');
+      todayArea.innerHTML = `<div style="background:var(--surface);border:2px solid var(--primary-light);border-radius:var(--radius);padding:14px;">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
+          <div style="width:7px;height:7px;border-radius:50%;background:var(--primary);"></div>
+          <span style="font-size:11px;font-weight:700;color:var(--primary);">TODAY</span>
+        </div>
+        ${allToday.map(ev => `
+          <div style="display:flex;gap:10px;align-items:flex-start;padding:6px 0;border-bottom:0.5px solid var(--border);">
+            <div style="font-size:12px;color:var(--text-hint);font-weight:700;width:70px;flex-shrink:0;">${ev.start}${ev.end?'〜'+ev.end:''}</div>
+            <div style="flex:1;">
+              <div style="font-size:13px;font-weight:500;">${ev.type==='seat' ? (VICO[ev.venue]||'🎵')+' ' : '📝 '}${ev.title || '—'}</div>
+              ${ev.type==='seat' && ev.seatInfo ? `<div style="font-size:11px;color:var(--text-hint);margin-top:1px;">💺 ${ev.seatInfo}</div>` : ''}
+              ${ev.venue && ev.type==='plan' ? `<div style="font-size:11px;color:var(--text-hint);margin-top:1px;">📍 ${ev.venue}</div>` : ''}
+            </div>
+          </div>`).join('')}
+        <a href="calendar.html" style="display:block;margin-top:10px;padding:7px;background:var(--primary-light);color:var(--primary-dark);border-radius:var(--radius-sm);font-size:12px;text-align:center;text-decoration:none;">カレンダーで詳細を見る</a>
+      </div>`;
     }
   } catch (e) {
     console.error('ホームデータ取得エラー:', e);
+    document.getElementById('today-area').innerHTML =
+      '<p style="color:var(--text-hint);font-size:12px;">読み込みに失敗しました</p>';
   }
 });
 </script>

@@ -48,6 +48,10 @@
       <label>日付</label>
       <input type="date" id="date"/>
     </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="field"><label>開演時刻（任意）</label><input type="time" id="start-time"/></div>
+      <div class="field"><label>終演時刻（任意）</label><input type="time" id="end-time"/></div>
+    </div>
   </div>
 
   <div class="section-title">座席情報</div>
@@ -104,6 +108,8 @@ window.saveSeat = async function() {
       venue,
       live:  document.getElementById('live').value.trim(),
       date,
+      startTime: document.getElementById('start-time').value,
+      endTime:   document.getElementById('end-time').value,
       block: document.getElementById('block').value.trim(),
       row:   document.getElementById('row').value.trim(),
       num:   document.getElementById('num').value.trim(),

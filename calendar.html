@@ -13,59 +13,65 @@
   <title>推し活記録 - カレンダー</title>
   <link rel="stylesheet" href="css/style.css"/>
   <style>
-    .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:3px; }
-    .cal-lbl-cell { text-align:center; font-size:11px; padding:4px 0; font-weight:500; }
-    .cal-cell {
-      aspect-ratio:1; border-radius:8px; display:flex; flex-direction:column;
-      align-items:center; justify-content:center; font-size:13px;
-      cursor:pointer; position:relative; color:var(--text);
-      transition: background .15s;
+    .legend{display:flex;gap:14px;font-size:11px;color:var(--text-sub);margin-bottom:10px;}
+    .legend-item{display:flex;align-items:center;gap:4px;}
+    .legend-dot{width:8px;height:8px;border-radius:3px;}
+    .month-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+    .month-nav{background:var(--surface2);border:none;border-radius:50%;width:34px;height:34px;font-size:20px;color:var(--text-sub);cursor:pointer;}
+    .month-title{font-size:17px;font-weight:700;}
+    .cgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+    .clbl{text-align:center;font-size:11px;padding:4px 0;font-weight:500;color:var(--text-hint);}
+    .clbl.sun{color:var(--accent);} .clbl.sat{color:var(--primary);}
+    .cc{aspect-ratio:1;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:6px;font-size:13px;cursor:pointer;position:relative;color:var(--text);gap:2px;}
+    .cc:active{background:var(--primary-light);}
+    .cc.today{background:var(--primary);color:#fff;font-weight:700;}
+    .cc.sun{color:var(--accent);} .cc.sat{color:var(--primary);}
+    .cc.today.sun,.cc.today.sat{color:#fff;}
+    .cc-dots{display:flex;gap:2px;}
+    .cc-dot{width:5px;height:5px;border-radius:50%;}
+    .cc.today .cc-dot{background:rgba(255,255,255,.85)!important;}
+    .today-summary{background:var(--surface);border:2px solid var(--primary-light);border-radius:var(--radius);padding:13px;margin-top:14px;cursor:pointer;}
+    .ts-label{font-size:11px;font-weight:700;color:var(--primary);margin-bottom:8px;}
+    .ts-event{display:flex;gap:10px;align-items:flex-start;padding:6px 0;}
+    .ts-time{font-size:12px;color:var(--text-hint);font-weight:700;width:70px;flex-shrink:0;}
+    .ts-content{flex:1;}
+    .ts-title{font-size:13px;font-weight:500;}
+    .ts-venue{font-size:11px;color:var(--text-hint);margin-top:1px;}
+
+    /* DAY TIMELINE VIEW */
+    .day-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+    .day-title{font-size:16px;font-weight:700;}
+    .day-nav{display:flex;gap:6px;}
+    .timeline{position:relative;}
+    .tl-hour{display:flex;border-top:0.5px solid var(--border);min-height:56px;position:relative;}
+    .tl-hour:first-child{border-top:none;}
+    .tl-hour-label{width:44px;flex-shrink:0;font-size:10px;color:var(--text-hint);padding-top:2px;text-align:right;padding-right:8px;}
+    .tl-hour-body{flex:1;position:relative;}
+    .tl-event{
+      position:absolute;border-radius:8px;padding:5px 8px;
+      font-size:11px;overflow:hidden;cursor:pointer;border-left:3px solid;
+      box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;
+      line-height:1.25;
     }
-    .cal-cell:active { opacity:.7; }
-    .cal-cell.today { background:var(--primary); color:#fff; font-weight:700; }
-    .cal-cell.has-seat::after {
-      content:''; width:5px; height:5px;
-      background:var(--accent); border-radius:50%;
-      position:absolute; bottom:3px;
-    }
-    .cal-cell.has-memo::before {
-      content:''; width:5px; height:5px;
-      background:var(--amb, #FFB347); border-radius:50%;
-      position:absolute; bottom:3px; left:calc(50% + 4px);
-    }
-    .cal-cell.has-seat.has-memo::after { left:calc(50% - 4px); }
-    .cal-cell.today.has-seat::after,
-    .cal-cell.today.has-memo::before { background:rgba(255,255,255,.8); }
-    .cal-cell.sun { color:var(--accent); }
-    .cal-cell.sat { color:var(--primary); }
-    .cal-cell.today.sun, .cal-cell.today.sat { color:#fff; }
-    .detail-box {
-      background:var(--surface); border:1px solid var(--border);
-      border-radius:var(--radius); padding:14px; margin-top:12px;
-    }
-    .detail-title { font-size:13px; font-weight:700; margin-bottom:10px; color:var(--text); }
-    .seat-badge {
-      display:inline-block; background:var(--primary-light); color:var(--primary-dark);
-      font-size:10px; padding:2px 8px; border-radius:20px; margin-bottom:4px;
-    }
-    .memo-input {
-      width:100%; padding:9px 12px; border:1.5px solid var(--border);
-      border-radius:var(--radius-sm); font-size:16px;
-      font-family:inherit; background:var(--surface2); color:var(--text);
-      resize:none; min-height:72px; margin-top:8px;
-    }
-    .memo-input:focus { outline:none; border-color:var(--primary); background:var(--surface); }
-    .memo-save-btn {
-      margin-top:8px; padding:9px 20px; background:var(--primary); color:#fff;
-      border:none; border-radius:var(--radius-sm); font-size:13px; font-weight:700;
-      cursor:pointer; font-family:inherit;
-    }
-    .memo-card {
-      background:var(--surface2); border-radius:var(--radius-sm);
-      padding:9px 12px; margin-top:8px; font-size:12px; color:var(--text-sub);
-      display:flex; justify-content:space-between; align-items:flex-start; gap:8px;
-    }
-    .memo-del { border:none; background:none; color:var(--text-hint); cursor:pointer; font-size:14px; flex-shrink:0; }
+    .tl-event-seat{background:var(--primary-light);border-color:var(--primary);color:var(--primary-dark);}
+    .tl-event-plan{background:#FFF3E0;border-color:#FFB347;color:#633806;}
+    .tl-event-title{font-weight:700;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .tl-event-time{font-size:10px;opacity:.8;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .tl-event-venue{font-size:10px;opacity:.8;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .tl-event.compact{flex-direction:row;align-items:center;gap:6px;padding:2px 8px;}
+    .tl-event.compact .tl-event-title{font-size:11px;}
+    .tl-event.compact .tl-event-time{margin-top:0;flex-shrink:0;}
+    .tl-event.compact .tl-event-venue{display:none;}
+    .now-line{position:absolute;left:48px;right:0;height:2px;background:var(--accent);z-index:5;}
+    .now-line::before{content:'';position:absolute;left:-4px;top:-3px;width:8px;height:8px;border-radius:50%;background:var(--accent);}
+
+    /* MODAL */
+    .modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.38);z-index:200;display:flex;align-items:flex-end;}
+    .modal-box{background:var(--surface);border-radius:var(--radius) var(--radius) 0 0;padding:18px;width:100%;max-width:480px;margin:0 auto;max-height:85vh;overflow-y:auto;}
+    .modal-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+    .modal-title{font-size:14px;font-weight:700;}
+    .modal-close{background:none;border:none;cursor:pointer;font-size:20px;color:var(--text-hint);}
+    .fab{position:fixed;bottom:max(24px, env(safe-area-inset-bottom));right:18px;width:52px;height:52px;border-radius:50%;background:var(--primary);color:#fff;border:none;font-size:24px;box-shadow:0 6px 16px rgba(123,104,238,.4);cursor:pointer;z-index:50;}
   </style>
 </head>
 <body>
@@ -74,213 +80,378 @@
   <span class="header-title" style="text-align:center;flex:1;">推し活カレンダー</span>
   <div style="width:36px;"></div>
 </header>
-<main class="app-content">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-    <button class="icon-btn" onclick="calNav(-1)" style="font-size:22px;">‹</button>
-    <span style="font-size:17px;font-weight:700;" id="cal-lbl"></span>
-    <button class="icon-btn" onclick="calNav(1)" style="font-size:22px;">›</button>
+
+<!-- ===== MONTH VIEW ===== -->
+<main class="app-content" id="view-month">
+  <div class="month-head">
+    <button class="month-nav" onclick="monthNav(-1)">‹</button>
+    <span class="month-title" id="month-title"></span>
+    <button class="month-nav" onclick="monthNav(1)">›</button>
   </div>
-
-  <div class="card" style="padding:10px;">
-    <!-- 凡例 -->
-    <div style="display:flex;gap:14px;margin-bottom:10px;font-size:11px;color:var(--text-sub);">
-      <div style="display:flex;align-items:center;gap:4px;"><div style="width:7px;height:7px;border-radius:50%;background:var(--accent);"></div>参戦記録</div>
-      <div style="display:flex;align-items:center;gap:4px;"><div style="width:7px;height:7px;border-radius:50%;background:#FFB347;"></div>メモ</div>
-    </div>
-    <div class="cal-grid" id="cal-labels"></div>
-    <div class="cal-grid" id="cal-cells" style="margin-top:4px;gap:4px;"></div>
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:var(--primary);"></div>参戦記録</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#FFB347;"></div>予定メモ</div>
   </div>
+  <div class="cgrid" id="cal-labels"></div>
+  <div class="cgrid" id="cal-cells" style="margin-top:4px;"></div>
 
-  <div id="cal-detail" style="display:none;"></div>
-
-  <div class="section-title" style="margin-top:14px;">今月の参戦記録</div>
-  <div id="cal-month-list"></div>
+  <div class="today-summary" onclick="openDay(todayStr)">
+    <div class="ts-label">📍 本日の予定</div>
+    <div id="today-events"><div class="loading"><div class="spinner"></div>読み込み中…</div></div>
+  </div>
 </main>
+
+<!-- ===== DAY TIMELINE VIEW ===== -->
+<main class="app-content" id="view-day" style="display:none;">
+  <div class="day-head">
+    <button class="icon-btn" onclick="backToMonth()">← 月表示</button>
+    <div class="day-nav">
+      <button class="month-nav" style="width:30px;height:30px;font-size:16px;" onclick="dayNav(-1)">‹</button>
+      <button class="month-nav" style="width:30px;height:30px;font-size:16px;" onclick="dayNav(1)">›</button>
+    </div>
+  </div>
+  <div class="day-title" id="day-title" style="margin-bottom:10px;"></div>
+  <div class="timeline" id="timeline"></div>
+</main>
+<button class="fab" id="fab-add" style="display:none;" onclick="openAddModal()">＋</button>
+
+<!-- ===== ADD/EDIT MEMO MODAL ===== -->
+<div class="modal-ov" id="memo-modal" style="display:none;" onclick="if(event.target===this)closeModal()">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-hd"><span class="modal-title" id="modal-title">予定を追加</span><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div class="field"><label>タイトル</label><input type="text" id="m-title" placeholder="例：グッズ受け取り"/></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="field"><label>開始時刻</label><input type="time" id="m-start" value="12:00"/></div>
+      <div class="field"><label>終了時刻</label><input type="time" id="m-end" value="13:00"/></div>
+    </div>
+    <div class="field"><label>会場（任意）</label>
+      <select id="m-venue">
+        <option value="">選択しない</option>
+        <option value="東京ドーム">東京ドーム</option>
+        <option value="京セラドーム大阪">京セラドーム大阪</option>
+        <option value="バンテリンドームナゴヤ">バンテリンドームナゴヤ</option>
+        <option value="みずほPayPayドーム福岡">みずほPayPayドーム福岡</option>
+        <option value="明治神宮野球場">明治神宮野球場</option>
+        <option value="other">その他</option>
+      </select>
+    </div>
+    <div class="field"><label>メモ（任意）</label><textarea id="m-memo" placeholder="持ち物・注意事項など"></textarea></div>
+    <div id="m-err" class="msg"></div>
+    <button class="btn-primary" onclick="saveMemo()">保存する</button>
+    <button class="btn-primary" id="m-del-btn" onclick="deleteMemo()" style="display:none;margin-top:8px;background:#E24B4A;">🗑 この予定を削除</button>
+  </div>
+</div>
+
+<!-- ===== SEAT DETAIL MODAL (read-only) ===== -->
+<div class="modal-ov" id="seat-modal" style="display:none;" onclick="if(event.target===this)document.getElementById('seat-modal').style.display='none'">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-hd"><span class="modal-title">参戦記録</span><button class="modal-close" onclick="document.getElementById('seat-modal').style.display='none'">✕</button></div>
+    <div id="seat-detail-body"></div>
+    <button class="btn-primary" onclick="document.getElementById('seat-modal').style.display='none'" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);margin-top:10px;">閉じる</button>
+  </div>
+</div>
 
 <script type="module">
 import { requireAuth } from './js/auth-guard.js';
 import { db } from './js/firebase.js';
 import {
   collection, query, where, getDocs,
-  doc, setDoc, deleteDoc, getDoc
+  doc, setDoc, getDoc
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-const pad = n => String(n).padStart(2, '0');
+const pad = n => String(n).padStart(2,'0');
 const today = new Date();
+window.todayStr = today.getFullYear()+'-'+pad(today.getMonth()+1)+'-'+pad(today.getDate());
+const todayStr = window.todayStr;
+
 let calY = today.getFullYear(), calM = today.getMonth();
-let seats = [], memos = {}, currentUser = null;
-let selectedDate = null;
+let viewDate = todayStr;
+let editMemoKey = null;
+let currentUser = null;
+
+let seats = [];      // 参戦記録（座席登録）
+let calMemos = {};   // { date: [ {id,title,start,end,venue,memo} ] }
+
+const VICO = {'東京ドーム':'🗼','京セラドーム大阪':'🏯','バンテリンドームナゴヤ':'⛩️','みずほPayPayドーム福岡':'🌊','明治神宮野球場':'⚾'};
 
 requireAuth(async (user) => {
   currentUser = user;
-  const uid = user.uid;
   try {
-    // 参戦座席データ取得
-    const ss = await getDocs(query(collection(db, 'seats'), where('uid', '==', uid)));
+    const ss = await getDocs(query(collection(db,'seats'), where('uid','==',user.uid)));
     seats = ss.docs.map(d => ({ id: d.id, ...d.data() }));
 
-    // カレンダーメモ取得（uid単位のドキュメント）
-    const memoDoc = await getDoc(doc(db, 'calMemos', uid));
-    if (memoDoc.exists()) memos = memoDoc.data().memos || {};
+    const memoDoc = await getDoc(doc(db,'calMemos', user.uid));
+    if (memoDoc.exists()) calMemos = memoDoc.data().memos || {};
 
-    renderCal();
-  } catch (e) {
+    renderMonth();
+  } catch(e) {
     console.error('calendar load error:', e);
+    document.getElementById('today-events').innerHTML =
+      '<p style="color:var(--text-hint);font-size:12px;">読み込みに失敗しました</p>';
   }
 });
 
-window.calNav = d => {
-  calM += d;
-  if (calM < 0) { calM = 11; calY--; }
-  if (calM > 11) { calM = 0; calY++; }
-  selectedDate = null;
-  document.getElementById('cal-detail').style.display = 'none';
-  renderCal();
-};
-
-// 日付ごとの座席データをまとめる
-function getSeatsByDate() {
-  const map = {};
-  seats.forEach(s => {
-    if (!s.date) return;
-    if (!map[s.date]) map[s.date] = [];
-    map[s.date].push(s);
-  });
-  return map;
+// ===== ユーティリティ =====
+function timeToMin(t){ if(!t) return 0; const [h,m]=t.split(':').map(Number); return h*60+m; }
+function addMin(time, mins){
+  let total = timeToMin(time) + mins;
+  total = ((total % 1440) + 1440) % 1440;
+  return pad(Math.floor(total/60)) + ':' + pad(total%60);
+}
+function getSeatsByDate(){
+  const m = {};
+  seats.forEach(s => { if(!s.date) return; if(!m[s.date]) m[s.date]=[]; m[s.date].push(s); });
+  return m;
 }
 
-function renderCal() {
-  document.getElementById('cal-lbl').textContent = calY + '年' + (calM + 1) + '月';
-  const DL = ['日', '月', '火', '水', '木', '金', '土'];
-  document.getElementById('cal-labels').innerHTML = DL.map((d, i) =>
-    `<div class="cal-lbl-cell" style="color:${i === 0 ? 'var(--accent)' : i === 6 ? 'var(--primary)' : 'var(--text-hint)'}">${d}</div>`
-  ).join('');
+// ===== 月表示 =====
+window.monthNav = d => { calM += d; if(calM<0){calM=11;calY--;} if(calM>11){calM=0;calY++;} renderMonth(); };
+
+function renderMonth(){
+  document.getElementById('month-title').textContent = calY+'年'+(calM+1)+'月';
+  const DL = ['日','月','火','水','木','金','土'];
+  document.getElementById('cal-labels').innerHTML = DL.map((d,i)=>
+    `<div class="clbl ${i===0?'sun':i===6?'sat':''}">${d}</div>`).join('');
 
   const seatMap = getSeatsByDate();
-  const first = new Date(calY, calM, 1).getDay();
-  const days  = new Date(calY, calM + 1, 0).getDate();
+  const first = new Date(calY,calM,1).getDay();
+  const days  = new Date(calY,calM+1,0).getDate();
   let h = '';
-  for (let i = 0; i < first; i++) h += '<div></div>';
-  for (let d = 1; d <= days; d++) {
-    const ds  = calY + '-' + pad(calM + 1) + '-' + pad(d);
-    const isT = d === today.getDate() && calM === today.getMonth() && calY === today.getFullYear();
-    const hasSeat = !!(seatMap[ds] && seatMap[ds].length);
-    const hasMemo = !!(memos[ds]);
-    const dow = (first + d - 1) % 7;
-    const sc  = isT ? 'today' : dow === 0 ? 'sun' : dow === 6 ? 'sat' : '';
-    const sel = selectedDate === ds ? 'outline:2px solid var(--primary);outline-offset:2px;' : '';
-    h += `<div class="cal-cell ${sc}${hasSeat ? ' has-seat' : ''}${hasMemo ? ' has-memo' : ''}"
-      style="${sel}" onclick="selectDay('${ds}', ${d})">${d}</div>`;
+  for(let i=0;i<first;i++) h += '<div></div>';
+  for(let d=1; d<=days; d++){
+    const ds = calY+'-'+pad(calM+1)+'-'+pad(d);
+    const isT = ds===todayStr;
+    const dow = (first+d-1)%7;
+    const sc = isT?'today':dow===0?'sun':dow===6?'sat':'';
+    let dots = '';
+    if (seatMap[ds] && seatMap[ds].length) dots += '<div class="cc-dot" style="background:var(--primary);"></div>';
+    if (calMemos[ds] && calMemos[ds].length) dots += '<div class="cc-dot" style="background:#FFB347;"></div>';
+    h += `<div class="cc ${sc}" onclick="openDay('${ds}')">${d}<div class="cc-dots">${dots}</div></div>`;
   }
   document.getElementById('cal-cells').innerHTML = h;
-  renderMonthList();
+  renderTodaySummary();
 }
 
-window.selectDay = (ds, d) => {
-  selectedDate = ds;
-  renderCal(); // ハイライト更新
-  showDetail(ds, d);
-};
-
-function showDetail(ds, d) {
+function renderTodaySummary(){
   const seatMap = getSeatsByDate();
-  const daySeats = seatMap[ds] || [];
-  const memo     = memos[ds] || '';
-  const det      = document.getElementById('cal-detail');
-  const VICO     = {'東京ドーム':'🗼','京セラドーム大阪':'🏯','バンテリンドームナゴヤ':'⛩️','みずほPayPayドーム福岡':'🌊','明治神宮野球場':'⚾'};
-
-  let html = `<div class="detail-box">
-    <div class="detail-title">${calM + 1}月${d}日（${'日月火水木金土'[new Date(ds).getDay()]}）</div>`;
-
-  // 参戦記録
-  if (daySeats.length > 0) {
-    html += '<div style="margin-bottom:10px;">';
-    daySeats.forEach(s => {
-      const parts = [s.block, s.row, s.num].filter(Boolean).join(' · ');
-      html += `<div style="padding:8px 0;border-bottom:0.5px solid var(--border);">
-        <div style="font-size:14px;font-weight:700;">${VICO[s.venue] || '🎵'} ${s.venue}</div>
-        ${s.live  ? `<div style="font-size:12px;color:var(--text-sub);margin-top:2px;">🎤 ${s.live}</div>` : ''}
-        ${parts   ? `<div style="font-size:12px;color:var(--text-sub);margin-top:2px;">💺 ${parts}</div>` : ''}
-        <span class="seat-badge">参戦記録</span>
-      </div>`;
-    });
-    html += '</div>';
-  }
-
-  // メモ表示
-  if (memo) {
-    html += `<div class="memo-card">
-      <div style="flex:1;white-space:pre-wrap;">📝 ${memo}</div>
-      <button class="memo-del" onclick="deleteMemo('${ds}')" title="メモを削除">🗑</button>
-    </div>`;
-  }
-
-  // メモ入力欄
-  html += `<div style="margin-top:10px;">
-    <div style="font-size:12px;color:var(--text-sub);margin-bottom:4px;">📝 ${memo ? 'メモを編集' : 'メモを追加'}</div>
-    <textarea class="memo-input" id="memo-input-${ds}" placeholder="この日のメモを入力…">${memo}</textarea>
-    <button class="memo-save-btn" onclick="saveMemo('${ds}')">保存</button>
-  </div>`;
-
-  html += '</div>';
-  det.innerHTML = html;
-  det.style.display = '';
-  // スクロール
-  setTimeout(() => det.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
-}
-
-window.saveMemo = async (ds) => {
-  const val = document.getElementById('memo-input-' + ds).value.trim();
-  try {
-    if (val) {
-      memos[ds] = val;
-    } else {
-      delete memos[ds];
-    }
-    await setDoc(doc(db, 'calMemos', currentUser.uid), { memos, uid: currentUser.uid });
-    renderCal();
-    showDetail(ds, parseInt(ds.split('-')[2]));
-  } catch (e) {
-    console.error('memo save error:', e);
-    alert('保存に失敗しました');
-  }
-};
-
-window.deleteMemo = async (ds) => {
-  if (!confirm('メモを削除しますか？')) return;
-  delete memos[ds];
-  try {
-    await setDoc(doc(db, 'calMemos', currentUser.uid), { memos, uid: currentUser.uid });
-    renderCal();
-    showDetail(ds, parseInt(ds.split('-')[2]));
-  } catch (e) {
-    console.error('memo delete error:', e);
-  }
-};
-
-function renderMonthList() {
-  const seatMap = getSeatsByDate();
-  const pfx = calY + '-' + pad(calM + 1) + '-';
-  const monthDates = Object.keys(seatMap).filter(k => k.startsWith(pfx)).sort();
-  const el = document.getElementById('cal-month-list');
-  const VICO = {'東京ドーム':'🗼','京セラドーム大阪':'🏯','バンテリンドームナゴヤ':'⛩️','みずほPayPayドーム福岡':'🌊','明治神宮野球場':'⚾'};
-  if (!monthDates.length) {
-    el.innerHTML = '<div class="empty-state" style="padding:1.2rem 0;"><div class="empty-icon">📅</div><p>今月の参戦記録はありません</p></div>';
+  const events = [];
+  (seatMap[todayStr]||[]).forEach(s => events.push({
+    type:'seat', start: s.startTime||'00:00', end: s.endTime,
+    title: s.live || s.venue, venue: s.venue,
+  }));
+  (calMemos[todayStr]||[]).forEach(m => events.push({
+    type:'plan', start: m.start, end: m.end, title: m.title, venue: m.venue,
+  }));
+  events.sort((a,b)=>a.start.localeCompare(b.start));
+  const el = document.getElementById('today-events');
+  if (!events.length) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--text-hint);padding:6px 0;">今日の予定はありません</div>';
     return;
   }
-  el.innerHTML = monthDates.map(ds => {
-    const d = parseInt(ds.split('-')[2]);
-    return seatMap[ds].map(s => `
-      <div class="card" style="margin-bottom:8px;display:flex;align-items:center;gap:10px;cursor:pointer;" onclick="selectDay('${ds}',${d})">
-        <div style="width:36px;height:36px;background:var(--primary-light);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--primary-dark);">${d}日</div>
-        <div style="flex:1;">
-          <div style="font-size:13px;font-weight:700;">${VICO[s.venue] || '🎵'} ${s.venue}</div>
-          ${s.live ? `<div style="font-size:11px;color:var(--text-hint);">${s.live}</div>` : ''}
-        </div>
-        ${memos[ds] ? '<div style="font-size:18px;">📝</div>' : ''}
-      </div>`).join('');
-  }).join('');
+  el.innerHTML = events.map(ev => `
+    <div class="ts-event">
+      <div class="ts-time">${ev.start}${ev.end?'〜'+ev.end:''}</div>
+      <div class="ts-content">
+        <div class="ts-title">${ev.type==='seat' ? (VICO[ev.venue]||'🎵')+' ' : '📝 '}${ev.title}</div>
+        ${ev.venue && ev.type==='plan' ? `<div class="ts-venue">📍 ${ev.venue}</div>` : ''}
+      </div>
+    </div>`).join('');
 }
+
+// ===== 日タイムライン表示 =====
+window.openDay = ds => {
+  viewDate = ds;
+  document.getElementById('view-month').style.display = 'none';
+  document.getElementById('view-day').style.display = '';
+  document.getElementById('fab-add').style.display = '';
+  renderDay();
+};
+window.backToMonth = () => {
+  document.getElementById('view-day').style.display = 'none';
+  document.getElementById('view-month').style.display = '';
+  document.getElementById('fab-add').style.display = 'none';
+  renderMonth();
+};
+window.dayNav = d => {
+  const dt = new Date(viewDate);
+  dt.setDate(dt.getDate()+d);
+  viewDate = dt.getFullYear()+'-'+pad(dt.getMonth()+1)+'-'+pad(dt.getDate());
+  renderDay();
+};
+
+function renderDay(){
+  const dt = new Date(viewDate);
+  const W = ['日','月','火','水','木','金','土'];
+  document.getElementById('day-title').textContent =
+    dt.getFullYear()+'年'+(dt.getMonth()+1)+'月'+dt.getDate()+'日（'+W[dt.getDay()]+'）'+(viewDate===todayStr?' ・ 今日':'');
+
+  const seatMap = getSeatsByDate();
+  const daySeats = seatMap[viewDate] || [];
+  const dayMemos = calMemos[viewDate] || [];
+
+  const HOUR_H = 56;
+  let hourHtml = '';
+  for(let h=0; h<24; h++){
+    hourHtml += `<div class="tl-hour"><div class="tl-hour-label">${h}:00</div><div class="tl-hour-body"></div></div>`;
+  }
+  document.getElementById('timeline').innerHTML = '<div style="position:relative;">'+hourHtml+'</div>';
+  const container = document.querySelector('#timeline > div');
+
+  function placeEvent(start,end,title,sub,cls,onclick,col,cols){
+    col = col||0; cols = cols||1;
+    const sM = timeToMin(start);
+    const eM = end ? timeToMin(end) : sM+60;
+    const durMin = Math.max(eM-sM, 15);
+    const top = (sM/60)*HOUR_H;
+    const height = (durMin/60)*HOUR_H;
+    const div = document.createElement('div');
+    const isCompact = durMin < 45;
+    div.className = 'tl-event '+cls+(isCompact?' compact':'');
+    div.style.top = top+'px';
+    div.style.height = Math.max(height,22)+'px';
+    const gap=2;
+    const widthPct = 100/cols;
+    div.style.left = `calc(48px + ${col*widthPct}% + ${col>0?gap:0}px)`;
+    div.style.width = `calc(${widthPct}% - ${cols>1?(gap+2):4}px)`;
+    if (isCompact) {
+      div.innerHTML = `<div class="tl-event-title">${title}</div><div class="tl-event-time">${start}〜${end||''}</div>`;
+    } else {
+      div.innerHTML = `<div class="tl-event-title">${title}</div>${sub}`;
+    }
+    div.onclick = onclick;
+    container.appendChild(div);
+  }
+
+  // 統一フォーマットでイベント収集
+  const allEvents = [];
+  daySeats.forEach(s => {
+    const parts = [s.block, s.row, s.num].filter(Boolean).join(' · ');
+    allEvents.push({
+      start: s.startTime || '18:00',
+      end:   s.endTime || addMin(s.startTime||'18:00', 60),
+      title: (VICO[s.venue]||'🎵')+' '+(s.live||s.venue),
+      sub: `<div class="tl-event-time">${s.startTime||''}${s.endTime?'〜'+s.endTime:''}</div><div class="tl-event-venue">💺 ${parts}</div>`,
+      cls: 'tl-event-seat',
+      onclick: () => showSeatDetail(s),
+    });
+  });
+  dayMemos.forEach(m => {
+    allEvents.push({
+      start: m.start,
+      end:   m.end || addMin(m.start, 60),
+      title: '📝 '+m.title,
+      sub: `<div class="tl-event-time">${m.start}〜${m.end}</div>${m.venue?`<div class="tl-event-venue">📍 ${m.venue}</div>`:''}`,
+      cls: 'tl-event-plan',
+      onclick: () => openAddModal(m),
+    });
+  });
+
+  // 重なり検出 → 横並びに分割
+  allEvents.sort((a,b)=>timeToMin(a.start)-timeToMin(b.start));
+  const groups = [];
+  allEvents.forEach(ev => {
+    const sM=timeToMin(ev.start), eM=timeToMin(ev.end);
+    let placed=false;
+    for(const g of groups){
+      if(g.some(e=>timeToMin(e.start)<eM && timeToMin(e.end)>sM)){ g.push(ev); placed=true; break; }
+    }
+    if(!placed) groups.push([ev]);
+  });
+  groups.forEach(group=>{
+    const cols = group.length;
+    group.forEach((ev,i)=> placeEvent(ev.start, ev.end, ev.title, ev.sub, ev.cls, ev.onclick, i, cols));
+  });
+
+  // 現在時刻ライン
+  if (viewDate === todayStr) {
+    const now = new Date();
+    const nowMin = now.getHours()*60 + now.getMinutes();
+    const top = (nowMin/60)*HOUR_H;
+    const line = document.createElement('div');
+    line.className = 'now-line';
+    line.style.top = top+'px';
+    container.appendChild(line);
+    setTimeout(()=>{ window.scrollTo(0, Math.max(top-150,0)+document.querySelector('.timeline').offsetTop); }, 50);
+  } else {
+    setTimeout(()=>{ window.scrollTo(0, 8*HOUR_H + document.querySelector('.timeline').offsetTop); }, 50);
+  }
+}
+
+function showSeatDetail(s){
+  const parts = [s.block, s.row, s.num].filter(Boolean).join(' · ');
+  document.getElementById('seat-detail-body').innerHTML = `
+    <div style="background:var(--primary-light);border-radius:var(--radius);padding:14px;margin-bottom:12px;">
+      <div style="font-size:11px;color:var(--primary-dark);margin-bottom:4px;">${VICO[s.venue]||'🎵'} ${s.venue}</div>
+      <div style="font-size:16px;font-weight:700;color:var(--primary-dark);">${s.live||''}</div>
+      <div style="font-size:13px;color:var(--primary-dark);margin-top:6px;">🕐 ${s.startTime||''}${s.endTime?'〜'+s.endTime:''}</div>
+      <div style="font-size:13px;color:var(--primary-dark);margin-top:2px;">💺 ${parts}</div>
+      ${s.gate?`<div style="font-size:12px;color:var(--primary-dark);opacity:.8;margin-top:2px;">🚪 ${s.gate}ゲート</div>`:''}
+    </div>
+    ${s.memo?`<div style="font-size:12px;color:var(--text-sub);background:var(--surface2);border-radius:var(--radius-sm);padding:10px;margin-bottom:12px;">💬 ${s.memo}</div>`:''}
+    <div style="font-size:11px;color:var(--text-hint);text-align:center;">編集・削除は「参戦会場一覧」から行えます</div>
+  `;
+  document.getElementById('seat-modal').style.display = 'flex';
+}
+
+// ===== メモ追加・編集 =====
+window.openAddModal = memo => {
+  editMemoKey = memo ? memo.id : null;
+  document.getElementById('modal-title').textContent = memo ? '予定を編集' : '予定を追加';
+  document.getElementById('m-title').value = memo ? memo.title : '';
+  document.getElementById('m-start').value = memo ? memo.start : '12:00';
+  document.getElementById('m-end').value   = memo ? memo.end   : '13:00';
+  document.getElementById('m-venue').value = memo ? (memo.venue||'') : '';
+  document.getElementById('m-memo').value  = memo ? (memo.memo||'') : '';
+  document.getElementById('m-err').className = 'msg';
+  document.getElementById('m-del-btn').style.display = memo ? '' : 'none';
+  document.getElementById('memo-modal').style.display = 'flex';
+};
+window.closeModal = () => { document.getElementById('memo-modal').style.display = 'none'; };
+
+window.saveMemo = async () => {
+  const title = document.getElementById('m-title').value.trim();
+  const start = document.getElementById('m-start').value;
+  const end   = document.getElementById('m-end').value;
+  const err   = document.getElementById('m-err');
+  if (!title) { err.textContent='タイトルを入力してください'; err.className='msg error'; return; }
+  if (!start || !end) { err.textContent='開始・終了時刻を入力してください'; err.className='msg error'; return; }
+  err.className = 'msg';
+
+  if (!calMemos[viewDate]) calMemos[viewDate] = [];
+  const data = {
+    title, start, end,
+    venue: document.getElementById('m-venue').value,
+    memo:  document.getElementById('m-memo').value.trim(),
+  };
+  if (editMemoKey) {
+    const m = calMemos[viewDate].find(x=>x.id===editMemoKey);
+    if (m) Object.assign(m, data);
+  } else {
+    calMemos[viewDate].push({ id: 'm'+Date.now(), ...data });
+  }
+
+  try {
+    await setDoc(doc(db,'calMemos', currentUser.uid), { memos: calMemos, uid: currentUser.uid });
+    closeModal();
+    renderDay();
+  } catch(e) {
+    console.error(e);
+    err.textContent = '保存に失敗しました'; err.className = 'msg error';
+  }
+};
+
+window.deleteMemo = async () => {
+  if (!confirm('この予定を削除しますか？')) return;
+  calMemos[viewDate] = (calMemos[viewDate]||[]).filter(x=>x.id!==editMemoKey);
+  try {
+    await setDoc(doc(db,'calMemos', currentUser.uid), { memos: calMemos, uid: currentUser.uid });
+    closeModal();
+    renderDay();
+  } catch(e) {
+    console.error(e);
+    alert('削除に失敗しました');
+  }
+};
 </script>
 </body>
 </html>
